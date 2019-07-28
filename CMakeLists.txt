@@ -8,6 +8,6 @@ set(CMAKE_AUTOMOC ON)
 find_package(Qt5Core)
 find_package(Qt5Network)
 
-add_executable(${PROJECT_NAME} wlok.cpp wlok.h)
+add_executable(${PROJECT_NAME} wlok.cpp wlok.h z21.cpp z21.h)
 
 target_link_libraries(${PROJECT_NAME} Qt5::Core Qt5::Network)

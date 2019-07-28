@@ -1,7 +1,8 @@
-#ifndef _WLOK_H
-#define _WLOK_H
+#pragma once
 
 #include <QCoreApplication>
+
+#include "z21.h"
 
 class QUdpSocket;
 
@@ -19,16 +20,6 @@ public slots:
   void readData();
 
 private:
-  void getSerialNumber( char *, quint16 & ) const;
-  void getSystemState( char *, quint16 & ) const;
-  void logoff( char *, quint16 & );
-  void parseMsg( const char *, quint16, char *, quint16 & );
-  void processX( const char *, char *, quint16 &  );
-  void replyHeader( char *, quint16, quint16 ) const;
-  void setBroadcastFlags( const char *, char *, quint16 & );
-  void unknownCommand( char *, quint16 & ) const;
-
   QUdpSocket *_udpSocket;
+  z21Base_c  _z21;
 };
-
-#endif
