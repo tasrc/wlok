@@ -82,6 +82,25 @@ struct udword_t
 #endif
   }
 
+  operator uint32_t() const
+  {
+    uint32_t result;
+
+#ifdef LITTLE_INDIAN_SYSTEM
+    ( ( unsigned char * ) &result )[ 0 ] = byte0;
+    ( ( unsigned char * ) &result )[ 1 ] = byte1;
+    ( ( unsigned char * ) &result )[ 2 ] = byte2;
+    ( ( unsigned char * ) &result )[ 3 ] = byte3;
+#else
+    ( ( unsigned char * ) &result )[ 0 ] = byte3;
+    ( ( unsigned char * ) &result )[ 1 ] = byte2;
+    ( ( unsigned char * ) &result )[ 2 ] = byte1;
+    ( ( unsigned char * ) &result )[ 3 ] = byte0;
+#endif
+
+    return result;
+  }
+
 private:
   unsigned char byte0;
   unsigned char byte1;
@@ -189,6 +208,16 @@ struct systemStateDataChangedMessage_t
 };
 
 /*!
+  setBroadcastFlagsMessage_t
+
+  LAN_SET_BROADCASTFLAGS
+*/
+struct setBroadcastFlagsMessage_t
+{
+  udword_t broadcastFlags;
+};
+
+/*!
   hwInfoMessage_t
 */
 struct hwInfoMessage_t
@@ -212,15 +241,16 @@ struct z21Message_t
   {
     hwInfoMessage_t                 hwInfo;
     serialNumberMessage_t           serialNumber;
+    setBroadcastFlagsMessage_t      setBroadcastFlags;
     systemStateDataChangedMessage_t systemStateDataChanged;
     xMessage_t                      x;
   };
 };
 
 /*!
-  z21Base_c
+  serverBase_c
 */
-class z21Base_c
+class serverBase_c
 {
 public:
   enum centralState_t
@@ -241,7 +271,42 @@ public:
     HWT_Z21_START = 0x00000204,
   };
 
-  void parseMsg( const char *, uint16_t &, char *, uint16_t & );
+  static const uint8_t firmwareVersionMain = 0x01;
+  static const uint8_t firmwareVersionSub  = 0x28;
+
+  inline uint8_t centralState() const { return _centralState; }
+  virtual void   stop( bool ) = 0;
+
+private:
+  uint8_t _centralState = CS_NOT_SET;
+};
+
+/*!
+  z21Base_c
+*/
+class z21Base_c
+{
+public:
+  enum broadcastFlag_t
+  {
+    BROADCAST_AUTOMATIC_MESSAGES      = 0x00000001,
+    BROADCAST_RMBUS_CHANGED           = 0x00000002,
+    BROADCAST_RAILCOM_CHANGED         = 0x00000004,
+    BROADCAST_SYSTEMSTATE_CHANGED     = 0x00000100,
+    BROADCAST_ALL_LOCO_INFO           = 0x00010000,
+    BROADCAST_RAILCOM_CHANGED_ALL     = 0x00040000,
+    BROADCAST_FORWARD_CAN_TRACK       = 0x00080000,
+    BROADCAST_FORWARD_LOCONET_GENERAL = 0x01000000,
+    BROADCAST_FORWARD_LOCONET_LOCO    = 0x02000000,
+    BROADCAST_FORWARD_LOCONET_SWITCH  = 0x04000000,
+    BROADCAST_FORWARD_LOCONET_TRACK   = 0x08000000,
+  };
+
+  z21Base_c( serverBase_c * );
+
+  inline udword_t broadcastFlags() const { return _broadcastFlags; }
+  inline bool     isLoggedOff() const { return _isLoggedOff; }
+  void            parseMsg( const char *, uint16_t &, char *, uint16_t & );
 
 private:
   void processGetHwInfo( z21Message_t & );
@@ -252,7 +317,7 @@ private:
   void processSetBroadcastFlags( const z21Message_t &, z21Message_t & );
   void replyUnknownCommand( z21Message_t & ) const;
 
-  const uint8_t _firmwareVersionMain = 0x01;
-  const uint8_t _firmwareVersionSub  = 0x28;
-  uint8_t       _centralState        = CS_NOT_SET;
+  udword_t      _broadcastFlags = 0;
+  bool          _isLoggedOff    = false;
+  serverBase_c *_parent         = nullptr;
 };

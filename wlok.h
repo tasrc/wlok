@@ -1,12 +1,14 @@
 #pragma once
 
 #include <QCoreApplication>
+#include <QMap>
+#include <QString>
 
 #include "z21.h"
 
 class QUdpSocket;
 
-class wLok_c : public QCoreApplication
+class wLok_c : public QCoreApplication, public serverBase_c
 {
 public:
   wLok_c( int argc, char *argv[] ) :
@@ -15,11 +17,12 @@ public:
   }
 
   void initSocket();
+  void stop( bool );
 
 public slots:
   void readData();
 
 private:
-  QUdpSocket *_udpSocket;
-  z21Base_c  _z21;
+  QMap< QString, z21Base_c >  _clientSessions;
+  QUdpSocket                 *_udpSocket;
 };

@@ -2,6 +2,11 @@
 
 #include <stdio.h>
 
+z21Base_c::z21Base_c( serverBase_c *parent ) :
+  _parent( parent )
+{
+}
+
 void z21Base_c::parseMsg( const char *msgData, uint16_t &msgLen, char *replyData, uint16_t &replyLen )
 {
   const z21Message_t &message = ( const z21Message_t & ) *msgData;
@@ -71,9 +76,9 @@ void z21Base_c::processGetHwInfo( z21Message_t &reply )
 
   reply.length                       = 0x0c;
   reply.header                       = 0x10;
-  reply.hwInfo.hwType                = HWT_SMARTRAIL;
-  reply.hwInfo.firmwareVersionSub    = _firmwareVersionSub;
-  reply.hwInfo.firmwareVersionMain   = _firmwareVersionMain;
+  reply.hwInfo.hwType                = serverBase_c::HWT_SMARTRAIL;
+  reply.hwInfo.firmwareVersionSub    = _parent->firmwareVersionSub;
+  reply.hwInfo.firmwareVersionMain   = _parent->firmwareVersionMain;
   reply.hwInfo.firmwareDummy1 = 0;
   reply.hwInfo.firmwareDummy2 = 0;
 }
@@ -81,6 +86,8 @@ void z21Base_c::processGetHwInfo( z21Message_t &reply )
 void z21Base_c::processLogoff( z21Message_t &reply )
 {
   fprintf( stderr, "-- LAN_LOGOFF\n" );
+
+  _isLoggedOff = true;
 
   reply.length = 0x0;
   reply.header = 0x0;
@@ -96,8 +103,14 @@ void z21Base_c::processX( const z21Message_t &msg, z21Message_t &reply )
     reply.header                    = 0x40;
     reply.x.xHeader                 = 0x62;
     reply.x.db0                     = 0x22;
-    reply.x.statusChanged.status    = _centralState;
+    reply.x.statusChanged.status    = _parent->centralState();
     reply.x.firmwareVersion.xorByte = reply.x.xor1();
+  }
+  if ( msg.x.xHeader == 0x80 )
+  {
+    fprintf( stderr, "-- LAN_X_SET_STOP\n" );
+
+    _parent->stop( true );
   }
   else if ( msg.x.xHeader == 0xf1 && msg.x.db0 == 0x0a )
   {
@@ -107,8 +120,8 @@ void z21Base_c::processX( const z21Message_t &msg, z21Message_t &reply )
     reply.header                        = 0x40;
     reply.x.xHeader                     = 0xf3;
     reply.x.db0                         = 0x0a;
-    reply.x.firmwareVersion.mainVersion = _firmwareVersionMain;
-    reply.x.firmwareVersion.subVersion  = _firmwareVersionSub;
+    reply.x.firmwareVersion.mainVersion = _parent->firmwareVersionMain;
+    reply.x.firmwareVersion.subVersion  = _parent->firmwareVersionSub;
     reply.x.firmwareVersion.xorByte     = reply.x.xor2();
   }
   else
@@ -122,7 +135,7 @@ void z21Base_c::processSetBroadcastFlags( const z21Message_t &msg, z21Message_t 
 {
   fprintf( stderr, "-- LAN_SET_BROADCASTFLAGS\n" );
 
-  // TODO
+  _broadcastFlags = msg.setBroadcastFlags.broadcastFlags;
 
   reply.length = 0x00;
   reply.header = 0x00;
@@ -140,7 +153,7 @@ void z21Base_c::processSystemStateGetData( z21Message_t &reply ) const
   reply.systemStateDataChanged.temperature         = 0;
   reply.systemStateDataChanged.supplyVoltage       = 0;
   reply.systemStateDataChanged.vccVoltage          = 0;
-  reply.systemStateDataChanged.centralState        = _centralState;
+  reply.systemStateDataChanged.centralState        = _parent->centralState();
   reply.systemStateDataChanged.centralStateEx      = 0;
   reply.systemStateDataChanged.reserved1           = 0;
   reply.systemStateDataChanged.reserved2           = 0;
