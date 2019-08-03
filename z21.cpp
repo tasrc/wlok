@@ -14,12 +14,7 @@ void z21Base_c::parseMsg( const char *msgData, uint16_t &msgLen, char *replyData
 
   msgLen = message.length;
 
-  fprintf( stderr, "\nmessage %02x %02x (", uint16_t( message.length ), uint16_t( message.header ) );
-  for ( int xx = 0; xx < msgLen; xx++ )
-  {
-    fprintf( stderr, " %02x", ( unsigned char ) msgData[ xx ] );
-  }
-  fprintf( stderr, " )\n" );
+  logMsg( "\nmessage", message );
 
   switch ( uint16_t( message.header ) )
   {
@@ -53,12 +48,7 @@ void z21Base_c::parseMsg( const char *msgData, uint16_t &msgLen, char *replyData
 
   replyLen = reply.length;
 
-  fprintf( stderr, "reply %02x (", replyLen );
-  for ( int xx = 0; xx < replyLen; xx++ )
-  {
-    fprintf( stderr, " %02x", ( unsigned char ) replyData[ xx ] );
-  }
-  fprintf( stderr, " )\n" );
+  logMsg( "reply", reply );
 }
 
 void z21Base_c::processGetSerialNumber( z21Message_t &reply )
@@ -95,18 +85,21 @@ void z21Base_c::processLogoff( z21Message_t &reply )
 
 void z21Base_c::processX( const z21Message_t &msg, z21Message_t &reply )
 {
+  reply.length = 0x00;
+  reply.header = 0x00;
+
   if ( msg.x.xHeader == 0x21 && msg.x.db0 == 0x24 )
   {
     fprintf( stderr, "-- LAN_X_GET_STATUS\n" );
 
-    reply.length                    = 0x09;
-    reply.header                    = 0x40;
-    reply.x.xHeader                 = 0x62;
-    reply.x.db0                     = 0x22;
-    reply.x.statusChanged.status    = _parent->centralState();
-    reply.x.firmwareVersion.xorByte = reply.x.xor1();
+    reply.length                  = 0x09;
+    reply.header                  = 0x40;
+    reply.x.xHeader               = 0x62;
+    reply.x.db0                   = 0x22;
+    reply.x.statusChanged.status  = _parent->centralState();
+    reply.x.statusChanged.xorByte = reply.x.xor2();
   }
-  if ( msg.x.xHeader == 0x80 )
+  else if ( msg.x.xHeader == 0x80 )
   {
     fprintf( stderr, "-- LAN_X_SET_STOP\n" );
 
@@ -122,7 +115,7 @@ void z21Base_c::processX( const z21Message_t &msg, z21Message_t &reply )
     reply.x.db0                         = 0x0a;
     reply.x.firmwareVersion.mainVersion = _parent->firmwareVersionMain;
     reply.x.firmwareVersion.subVersion  = _parent->firmwareVersionSub;
-    reply.x.firmwareVersion.xorByte     = reply.x.xor2();
+    reply.x.firmwareVersion.xorByte     = reply.x.xor3();
   }
   else
   {
@@ -167,4 +160,34 @@ void z21Base_c::replyUnknownCommand( z21Message_t &reply ) const
   reply.header    = 0x40;
   reply.x.xHeader = 0x61;
   reply.x.db0     = 0x82;
+}
+
+void z21Base_c::getSendBcStopped( char *buffer, uint16_t &length ) const
+{
+  fprintf( stderr, "-- LAN_X_BC_STOPPED\n" );
+
+  length = 0x07;
+  z21Message_t &msg = ( z21Message_t & ) *buffer;
+
+  msg.length              = length;
+  msg.header              = 0x40;
+  msg.x.xHeader           = 0x81;
+  msg.x.db0               = 0x00;
+  msg.x.bcStopped.xorByte = msg.x.xor1();
+
+  logMsg( "send", msg );
+}
+
+void z21Base_c::logMsg( const char *label, const z21Message_t &data ) const
+{
+  const unsigned char *dataPtr = ( unsigned char * ) &data;
+  if ( data.length > 0 )
+  {
+    fprintf( stderr, "%s", label );
+    for ( int xx = 0; xx < data.length; xx++ )
+    {
+      fprintf( stderr, " %02x", dataPtr[ xx ] );
+    }
+    fprintf( stderr, "\n" );
+  }
 }

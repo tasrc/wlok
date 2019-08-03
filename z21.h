@@ -140,6 +140,16 @@ struct xStatusChangedMessage_t
 };
 
 /*!
+  xBcStoppedMessage_t
+
+  LAN_X_BC_STOPPED
+*/
+struct xBcStoppedMessage_t
+{
+  uint8_t xorByte;
+};
+
+/*!
   xXorHelper_t
 */
 struct xXorHelper_t
@@ -158,6 +168,7 @@ struct xMessage_t
 
   union
   {
+    xBcStoppedMessage_t          bcStopped;
     xFirmwareVersionMessage_t    firmwareVersion;
     xGetFirmwareVersionMessage_t getFirmwareVersion;
     xStatusChangedMessage_t      statusChanged;
@@ -166,15 +177,20 @@ struct xMessage_t
 
   uint8_t xor0() const
   {
-    return xHeader ^ db0;
+    return xHeader;
   }
 
   uint8_t xor1() const
   {
-    return xHeader ^ db0 ^ xorHelper.db1;
+    return xHeader ^ db0;
   }
 
   uint8_t xor2() const
+  {
+    return xHeader ^ db0 ^ xorHelper.db1;
+  }
+
+  uint8_t xor3() const
   {
     return xHeader ^ db0 ^ xorHelper.db1 ^ xorHelper.db2;
   }
@@ -277,7 +293,7 @@ public:
   inline uint8_t centralState() const { return _centralState; }
   virtual void   stop( bool ) = 0;
 
-private:
+protected:
   uint8_t _centralState = CS_NOT_SET;
 };
 
@@ -305,10 +321,12 @@ public:
   z21Base_c( serverBase_c * );
 
   inline udword_t broadcastFlags() const { return _broadcastFlags; }
+  void            getSendBcStopped( char *, uint16_t & ) const;
   inline bool     isLoggedOff() const { return _isLoggedOff; }
   void            parseMsg( const char *, uint16_t &, char *, uint16_t & );
 
 private:
+  void logMsg( const char *, const z21Message_t & ) const;
   void processGetHwInfo( z21Message_t & );
   void processGetSerialNumber( z21Message_t & );
   void processLogoff( z21Message_t & );

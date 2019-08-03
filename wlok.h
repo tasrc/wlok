@@ -1,12 +1,26 @@
 #pragma once
 
 #include <QCoreApplication>
+#include <QHostAddress>
 #include <QMap>
-#include <QString>
 
 #include "z21.h"
 
 class QUdpSocket;
+
+class clientAddress_c : public QHostAddress
+{
+public:
+  clientAddress_c( const QHostAddress host ) :
+    QHostAddress( host )
+  {
+  }
+
+  bool operator<( const clientAddress_c &other ) const
+  {
+    return toString() < other.toString();
+  }
+};
 
 class wLok_c : public QCoreApplication, public serverBase_c
 {
@@ -23,6 +37,7 @@ public slots:
   void readData();
 
 private:
-  QMap< QString, z21Base_c >  _clientSessions;
-  QUdpSocket                 *_udpSocket;
+  QMap< clientAddress_c, z21Base_c >  _clientSessions;
+  char                                _sendBuffer[ 2000 ];
+  QUdpSocket                         *_udpSocket;
 };

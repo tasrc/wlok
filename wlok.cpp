@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
 
 void wLok_c::initSocket()
 {
-  _udpSocket = new QUdpSocket(this);
+  _udpSocket = new QUdpSocket( this );
   _udpSocket->bind( QHostAddress::Any, 21105 );
 
   connect( _udpSocket, &QUdpSocket::readyRead, this, &wLok_c::readData );
@@ -28,12 +28,11 @@ void wLok_c::readData()
     QNetworkDatagram datagram = _udpSocket->receiveDatagram();
     QByteArray data = datagram.data();
 
-    const QString clientAddress = datagram.senderAddress().toString();
-    auto clientIt = _clientSessions.find( clientAddress );
+    auto clientIt = _clientSessions.find( datagram.senderAddress() );
     if ( clientIt == _clientSessions.end() )
     {
-      fprintf( stderr, "LOGIN %s\n", qPrintable( clientAddress ) );
-      clientIt = _clientSessions.insert( clientAddress, z21Base_c( this ) );
+      fprintf( stderr, "LOGIN %s\n", qPrintable( datagram.senderAddress().toString() ) );
+      clientIt = _clientSessions.insert( datagram.senderAddress(), z21Base_c( this ) );
     }
 
     auto client = clientIt.value();
@@ -55,19 +54,24 @@ void wLok_c::readData()
 
     if ( client.isLoggedOff() )
     {
-      fprintf( stderr, "LOGOFF %s\n", qPrintable( clientAddress ) );
-      _clientSessions.remove( clientAddress );
+      fprintf( stderr, "LOGOFF %s\n", qPrintable( datagram.senderAddress().toString() ) );
+      _clientSessions.remove( datagram.senderAddress() );
     }
   }
 }
 
 void wLok_c::stop( bool all )
 {
+  _centralState = _centralState | CS_EMERGENCY_STOP;
+
   for ( auto it = _clientSessions.begin(), itEnd = _clientSessions.end(); it != itEnd; ++it )
   {
     if ( all || uint32_t( it.value().broadcastFlags() ) & uint32_t( z21Base_c::BROADCAST_AUTOMATIC_MESSAGES ) )
     {
-      // TODO
+      quint16 sendLen;
+      it.value().getSendBcStopped( _sendBuffer, sendLen );
+      QNetworkDatagram datagram( QByteArray::fromRawData( _sendBuffer, sendLen ), it.key() );
+      _udpSocket->writeDatagram( datagram );
     }
   }
 }
