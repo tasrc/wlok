@@ -31,7 +31,11 @@ public:
   }
 
   void initSocket();
+  void programmingMode();
   void stop( bool );
+  void trackPowerOff( bool );
+  void trackPowerOn( bool );
+  void trackShortCircuit();
 
 public slots:
   void readData();

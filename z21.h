@@ -150,6 +150,48 @@ struct xBcStoppedMessage_t
 };
 
 /*!
+  xBcTrackPowerOnMessage_t
+
+  LAN_X_BC_TRACK_POWER_ON
+*/
+struct xBcTrackPowerOnMessage_t
+{
+  uint8_t xorByte;
+};
+
+/*!
+  xBcTrackShortCircuitMessage_t
+
+  LAN_X_BC_TRACK_SHORT_CIRCUIT
+*/
+struct xBcTrackShortCircuitMessage_t
+{
+  uint8_t xorByte;
+};
+
+/*!
+  xBcProgrammingModeMessage_t
+
+  LAN_X_BC_PROGRAMMING_MODE
+*/
+struct xBcProgrammingModeMessage_t
+{
+  uint8_t xorByte;
+};
+
+/*!
+  xVersionMessage_t
+
+  LAN_X_GET_VERSION
+*/
+struct xVersionMessage_t
+{
+  uint8_t db1;
+  uint8_t db2;
+  uint8_t xorByte;
+};
+
+/*!
   xXorHelper_t
 */
 struct xXorHelper_t
@@ -168,11 +210,15 @@ struct xMessage_t
 
   union
   {
-    xBcStoppedMessage_t          bcStopped;
-    xFirmwareVersionMessage_t    firmwareVersion;
-    xGetFirmwareVersionMessage_t getFirmwareVersion;
-    xStatusChangedMessage_t      statusChanged;
-    xXorHelper_t                 xorHelper;
+    xBcProgrammingModeMessage_t   bcProgrammingMode;
+    xBcStoppedMessage_t           bcStopped;
+    xBcTrackPowerOnMessage_t      bcTrackPowerOn;
+    xBcTrackShortCircuitMessage_t bcTrackShortCircuit;
+    xFirmwareVersionMessage_t     firmwareVersion;
+    xGetFirmwareVersionMessage_t  getFirmwareVersion;
+    xStatusChangedMessage_t       statusChanged;
+    xVersionMessage_t             version;
+    xXorHelper_t                  xorHelper;
   };
 
   uint8_t xor0() const
@@ -234,6 +280,16 @@ struct setBroadcastFlagsMessage_t
 };
 
 /*!
+  getBroadcastFlagsMessage_t
+
+  LAN_GET_BROADCASTFLAGS
+*/
+struct getBroadcastFlagsMessage_t
+{
+  udword_t broadcastFlags;
+};
+
+/*!
   hwInfoMessage_t
 */
 struct hwInfoMessage_t
@@ -246,6 +302,14 @@ struct hwInfoMessage_t
 };
 
 /*!
+  codeMessage_t
+*/
+struct codeMessage_t
+{
+  uint8_t  code;
+};
+
+/*!
   z21Message_t
 */
 struct z21Message_t
@@ -255,6 +319,8 @@ struct z21Message_t
 
   union
   {
+    codeMessage_t                   code;
+    getBroadcastFlagsMessage_t      getBroadcastFlags;
     hwInfoMessage_t                 hwInfo;
     serialNumberMessage_t           serialNumber;
     setBroadcastFlagsMessage_t      setBroadcastFlags;
@@ -273,7 +339,7 @@ public:
   {
     CS_NOT_SET                 = 0x00,
     CS_EMERGENCY_STOP          = 0x01,
-    CS_TRACK_VOLTAGE_OF        = 0x02,
+    CS_TRACK_VOLTAGE_OFF       = 0x02,
     CS_SHORT_CIRCUIT           = 0x04,
     CS_PROGRAMMING_MODE_ACTIVE = 0x20,
   };
@@ -288,10 +354,14 @@ public:
   };
 
   static const uint8_t firmwareVersionMain = 0x01;
-  static const uint8_t firmwareVersionSub  = 0x28;
+  static const uint8_t firmwareVersionSub  = 0x30;
 
   inline uint8_t centralState() const { return _centralState; }
+  virtual void   programmingMode() = 0;
   virtual void   stop( bool ) = 0;
+  virtual void   trackPowerOff( bool ) = 0;
+  virtual void   trackPowerOn( bool ) = 0;
+  virtual void   trackShortCircuit() = 0;
 
 protected:
   uint8_t _centralState = CS_NOT_SET;
@@ -321,19 +391,31 @@ public:
   z21Base_c( serverBase_c * );
 
   inline udword_t broadcastFlags() const { return _broadcastFlags; }
+  void            getSendBcProgrammingMode( char *, uint16_t & ) const;
   void            getSendBcStopped( char *, uint16_t & ) const;
+  void            getSendBcTrackPowerOff( char *, uint16_t & ) const;
+  void            getSendBcTrackPowerOn( char *, uint16_t & ) const;
+  void            getSendBcTrackShortCircuit( char *, uint16_t & ) const;
   inline bool     isLoggedOff() const { return _isLoggedOff; }
   void            parseMsg( const char *, uint16_t &, char *, uint16_t & );
 
 private:
+  void createBcProgrammingMode( z21Message_t & ) const;
+  void createBcStopped( z21Message_t & ) const;
+  void createBcTrackPowerOff( z21Message_t & ) const;
+  void createBcTrackPowerOn( z21Message_t & ) const;
+  void createBcTrackShortCircuit( z21Message_t & ) const;
+  void createSystemStateDataChanged( z21Message_t & ) const;
+  void createUnknownCommand( z21Message_t & ) const;
   void logMsg( const char *, const z21Message_t & ) const;
+  void processGetCode( z21Message_t & );
   void processGetHwInfo( z21Message_t & );
   void processGetSerialNumber( z21Message_t & );
   void processLogoff( z21Message_t & );
+  void processGetBroadcastFlags( z21Message_t & );
+  void processSetBroadcastFlags( const z21Message_t &, z21Message_t & );
   void processSystemStateGetData( z21Message_t & ) const;
   void processX( const z21Message_t &, z21Message_t & );
-  void processSetBroadcastFlags( const z21Message_t &, z21Message_t & );
-  void replyUnknownCommand( z21Message_t & ) const;
 
   udword_t      _broadcastFlags = 0;
   bool          _isLoggedOff    = false;

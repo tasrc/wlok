@@ -62,7 +62,7 @@ void wLok_c::readData()
 
 void wLok_c::stop( bool all )
 {
-  _centralState = _centralState | CS_EMERGENCY_STOP;
+  _centralState |= CS_EMERGENCY_STOP;
 
   for ( auto it = _clientSessions.begin(), itEnd = _clientSessions.end(); it != itEnd; ++it )
   {
@@ -70,6 +70,75 @@ void wLok_c::stop( bool all )
     {
       quint16 sendLen;
       it.value().getSendBcStopped( _sendBuffer, sendLen );
+      QNetworkDatagram datagram( QByteArray::fromRawData( _sendBuffer, sendLen ), it.key() );
+      _udpSocket->writeDatagram( datagram );
+    }
+  }
+}
+
+void wLok_c::trackPowerOff( bool all )
+{
+  _centralState |= CS_TRACK_VOLTAGE_OFF;
+  _centralState |= CS_EMERGENCY_STOP;
+
+  for ( auto it = _clientSessions.begin(), itEnd = _clientSessions.end(); it != itEnd; ++it )
+  {
+    if ( all || uint32_t( it.value().broadcastFlags() ) & uint32_t( z21Base_c::BROADCAST_AUTOMATIC_MESSAGES ) )
+    {
+      quint16 sendLen;
+      it.value().getSendBcTrackPowerOff( _sendBuffer, sendLen );
+      QNetworkDatagram datagram( QByteArray::fromRawData( _sendBuffer, sendLen ), it.key() );
+      _udpSocket->writeDatagram( datagram );
+    }
+  }
+}
+
+void wLok_c::trackPowerOn( bool all )
+{
+  _centralState &= ~CS_TRACK_VOLTAGE_OFF;
+  _centralState &= ~CS_EMERGENCY_STOP;
+  _centralState &= ~CS_SHORT_CIRCUIT;
+
+  for ( auto it = _clientSessions.begin(), itEnd = _clientSessions.end(); it != itEnd; ++it )
+  {
+    if ( all || uint32_t( it.value().broadcastFlags() ) & uint32_t( z21Base_c::BROADCAST_AUTOMATIC_MESSAGES ) )
+    {
+      quint16 sendLen;
+      it.value().getSendBcTrackPowerOn( _sendBuffer, sendLen );
+      QNetworkDatagram datagram( QByteArray::fromRawData( _sendBuffer, sendLen ), it.key() );
+      _udpSocket->writeDatagram( datagram );
+    }
+  }
+}
+
+void wLok_c::trackShortCircuit()
+{
+  _centralState &= ~CS_TRACK_VOLTAGE_OFF;
+  _centralState &= ~CS_EMERGENCY_STOP;
+  _centralState &= ~CS_SHORT_CIRCUIT;
+
+  for ( auto it = _clientSessions.begin(), itEnd = _clientSessions.end(); it != itEnd; ++it )
+  {
+    if ( uint32_t( it.value().broadcastFlags() ) & uint32_t( z21Base_c::BROADCAST_AUTOMATIC_MESSAGES ) )
+    {
+      quint16 sendLen;
+      it.value().getSendBcTrackShortCircuit( _sendBuffer, sendLen );
+      QNetworkDatagram datagram( QByteArray::fromRawData( _sendBuffer, sendLen ), it.key() );
+      _udpSocket->writeDatagram( datagram );
+    }
+  }
+}
+
+void wLok_c::programmingMode()
+{
+  _centralState &= ~CS_PROGRAMMING_MODE_ACTIVE;
+
+  for ( auto it = _clientSessions.begin(), itEnd = _clientSessions.end(); it != itEnd; ++it )
+  {
+    if ( uint32_t( it.value().broadcastFlags() ) & uint32_t( z21Base_c::BROADCAST_AUTOMATIC_MESSAGES ) )
+    {
+      quint16 sendLen;
+      it.value().getSendBcProgrammingMode( _sendBuffer, sendLen );
       QNetworkDatagram datagram( QByteArray::fromRawData( _sendBuffer, sendLen ), it.key() );
       _udpSocket->writeDatagram( datagram );
     }
