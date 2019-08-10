@@ -13,6 +13,35 @@ int main(int argc, char *argv[])
   return a.exec();
 }
 
+/*********************************************************************************************************************/
+
+loco_c::loco_c( wLok_c *parent, const locoAddress_t &address ) :
+  locoBase_c( parent, address )
+{
+}
+
+void loco_c::remove( const clientId_t &id )
+{
+  if ( _master == id )
+  {
+    _master = 0;
+  }
+
+  _subscriptions.remove( id );
+}
+
+void loco_c::setMaster( const clientId_t &id )
+{
+  _master = id;
+}
+
+void loco_c::subscribe( const clientId_t &id )
+{
+  _subscriptions.insert( id );
+}
+
+/*********************************************************************************************************************/
+
 void wLok_c::initSocket()
 {
   _udpSocket = new QUdpSocket( this );
@@ -35,7 +64,7 @@ void wLok_c::readData()
       clientIt = _clientSessions.insert( datagram.senderAddress(), z21Base_c( this ) );
     }
 
-    auto client = clientIt.value();
+    auto &client = clientIt.value();
 
     quint16 msgLen = 0;
     for ( quint16 pos = 0; pos < data.size(); pos += msgLen )
@@ -54,8 +83,7 @@ void wLok_c::readData()
 
     if ( client.isLoggedOff() )
     {
-      fprintf( stderr, "LOGOFF %s\n", qPrintable( datagram.senderAddress().toString() ) );
-      _clientSessions.remove( datagram.senderAddress() );
+      logoff( datagram.senderAddress() );
     }
   }
 }
@@ -143,4 +171,53 @@ void wLok_c::programmingMode()
       _udpSocket->writeDatagram( datagram );
     }
   }
+}
+
+loco_c & wLok_c::loco( const locoAddress_t &address )
+{
+  auto it = _locos.find( address );
+
+  if ( it == _locos.end() )
+  {
+    it = _locos.insert( address, loco_c( this, address ) );
+  }
+
+  return it.value();
+}
+
+void wLok_c::logoff( const clientAddress_c &address )
+{
+  fprintf( stderr, "LOGOFF %s\n", qPrintable( address.toString() ) );
+
+  auto clientIt = _clientSessions.find( address );
+  if ( clientIt != _clientSessions.end() )
+  {
+    auto &client = clientIt.value();
+
+    for ( auto &loco : _locos )
+    {
+      loco.remove( client.id() );
+    }
+  }
+
+  _clientSessions.remove( address );
+}
+
+void wLok_c::setLocoMaster( const locoAddress_t &address, const clientId_t &id )
+{
+  auto &l = loco( address );
+  if ( l.master() == 0 )
+  {
+    l.setMaster( id );
+  }
+}
+
+void wLok_c::subscribeLoco( const locoAddress_t &address, const clientId_t &id )
+{
+  loco( address ).subscribe( id );
+}
+
+clientId_t wLok_c::locoMaster( const locoAddress_t &address )
+{
+  loco( address ).master();
 }

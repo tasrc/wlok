@@ -2,10 +2,16 @@
 
 #include <stdio.h>
 
+#include "loco.h"
+#include "server_base.h"
+
+clientId_t z21Base_c::_nextId = 1;
+
 /*!
   Konstruktor
 */
 z21Base_c::z21Base_c( serverBase_c *parent ) :
+  _id( _nextId++ ),
   _parent( parent )
 {
 }
@@ -58,6 +64,14 @@ void z21Base_c::parseMsg( const char *msgData, uint16_t &msgLen, char *replyData
 
   case 0x51:
     processGetBroadcastFlags( reply );
+    break;
+
+  case 0x60:
+    processGetLocoMode( message, reply );
+    break;
+
+  case 0x61:
+    processSetLocoMode( message, reply );
     break;
 
   case 0x85:
@@ -175,6 +189,14 @@ void z21Base_c::processX( const z21Message_t &msg, z21Message_t &reply )
 
     _parent->stop( true );
   }
+  else if ( msg.x.xHeader == 0xe3 && msg.x.db0 == 0xf0 )
+  {
+    const locoAddress_t address = ( ( msg.x.getLocoInfo.adrMsb & 0x3f ) << 8 ) + msg.x.getLocoInfo.adrLsb;
+
+    fprintf( stderr, "-- LAN_X_GET_LOCO_INFO %d\n", address );
+
+    createLocoInfo( address, reply );
+  }
   else if ( msg.x.xHeader == 0xf1 && msg.x.db0 == 0x0a )
   {
     fprintf( stderr, "-- LAN_X_GET_FIRMWARE_VERSION\n" );
@@ -227,6 +249,39 @@ void z21Base_c::processSystemStateGetData( z21Message_t &reply ) const
   fprintf( stderr, "-- LAN_SYSTEMSTATE_GETDATA\n" );
 
   createSystemStateDataChanged( reply );
+}
+
+/*!
+  Abfrage des Lokmodues bearbeiten
+*/
+void z21Base_c::processGetLocoMode( const z21Message_t &msg, z21Message_t &reply )
+{
+  fprintf( stderr, "-- LAN_GET_LOCOMODE\n" );
+
+  locoAddress_t address = msg.getLocoMode.address;
+  auto &loco = _parent->loco( address );
+
+  reply.length = 0x07;
+  reply.header = 0x60;
+  reply.locoMode.address = address;
+  reply.locoMode.mode    = loco.addressFormat();
+}
+
+/*!
+  Setzen des Lokmodues bearbeiten
+*/
+void z21Base_c::processSetLocoMode( const z21Message_t &msg, z21Message_t &reply )
+{
+  fprintf( stderr, "-- LAN_GET_LOCOMODE\n" );
+
+  locoAddress_t address = msg.setLocoMode.address;
+  auto &loco = _parent->loco( address );
+
+// TODO: Wird erstmal nicht verarbeitet. Das Format ist fest DCC.
+//  loco.setAddressFormat( locoBase_c::addressFormat_t( msg.setLocoMode.mode ) );
+
+  reply.length = 0x00;
+  reply.header = 0x00;
 }
 
 /*!
@@ -404,6 +459,94 @@ void z21Base_c::getSendBcProgrammingMode( char *buffer, uint16_t &length ) const
 }
 
 /*!
+  Message mit Lokinformationen erzeugen
+*/
+void z21Base_c::createLocoInfo( const locoAddress_t &address, z21Message_t &msg ) const
+{
+  fprintf( stderr, "-- LAN_X_LOCO_INFO %d\n", address );
+
+  _parent->subscribeLoco( address, _id );
+
+  auto &loco = _parent->loco( address );
+
+  uint8_t adrMsb = address >> 8;
+  if ( address >= 128 )
+  {
+    adrMsb |= 0xc0;
+  }
+
+  const uint8_t adrLsb = address & 0xff;
+
+  const clientId_t locoMaster = _parent->locoMaster( address );
+  const bool hasOtherMaster = locoMaster != 0 && locoMaster != _id;
+  uint8_t speedMode = loco.speedMode();
+  if ( locoMaster != 0 && locoMaster != _id )
+  {
+    speedMode |= 0x08;
+  }
+
+  uint8_t function0 = 0x00;
+  uint8_t function1 = 0x00;
+  uint8_t function2 = 0x00;
+  uint8_t function3 = 0x00;
+  int functionIndex = 0;
+
+  if ( loco.multipleUnit() )
+  {
+    function0 |= 0x40;
+  }
+  if ( loco.function( functionIndex++ ) )
+  {
+    function0 |= 0x10;
+  }
+
+  for ( int bit = 0; bit < 4; bit++ )
+  {
+    if ( loco.function( functionIndex++ ) )
+    {
+      function0 |= ( 1 << bit );
+    }
+  }
+
+  for ( int bit = 0; bit < 8; bit++ )
+  {
+    if ( loco.function( functionIndex++ ) )
+    {
+      function1 |= ( 1 << bit );
+    }
+  }
+
+  for ( int bit = 0; bit < 8; bit++ )
+  {
+    if ( loco.function( functionIndex++ ) )
+    {
+      function2 |= ( 1 << bit );
+    }
+  }
+
+  for ( int bit = 0; bit < 8; bit++ )
+  {
+    if ( loco.function( functionIndex++ ) )
+    {
+      function3 |= ( 1 << bit );
+    }
+  }
+
+  msg.length               = 0x0d;
+  msg.header               = 0x40;
+  msg.x.xHeader            = 0xef;
+  msg.x.db0                = adrMsb;
+  msg.x.locoInfo.adrLsb    = adrLsb;
+  msg.x.locoInfo.speedMode = speedMode;
+  msg.x.locoInfo.speed     = loco.codedSpeed( _parent->centralStateStopped() );
+  msg.x.locoInfo.function0 = function0;
+  msg.x.locoInfo.function1 = function1;
+  msg.x.locoInfo.function2 = function2;
+  msg.x.locoInfo.function3 = function3;
+  msg.x.locoInfo.xorByte   = msg.x.xor8();
+}
+
+/*!
   Eine empfangene/gesendete Message ausgeben
 */
 void z21Base_c::logMsg( const char *label, const z21Message_t &data ) const
@@ -412,7 +555,7 @@ void z21Base_c::logMsg( const char *label, const z21Message_t &data ) const
   if ( data.length > 0 )
   {
     fprintf( stderr, "%s", label );
-    for ( int xx = 0; xx < data.length; xx++ )
+    for ( int xx = 0; xx < int( data.length ); xx++ )
     {
       fprintf( stderr, " %02x", dataPtr[ xx ] );
     }

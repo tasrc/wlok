@@ -1,112 +1,8 @@
 #pragma once
 
-// TODO
-#define LITTLE_INDIAN_SYSTEM
+#include "types.h"
 
-#include <stdint.h>
-
-/*!
-  uword_t
-*/
-struct uword_t
-{
-  uword_t( uint16_t value )
-  {
-#ifdef LITTLE_INDIAN_SYSTEM
-    low  = ( ( unsigned char * ) &value )[ 0 ];
-    high = ( ( unsigned char * ) &value )[ 1 ];
-#else
-    high = ( ( unsigned char * ) &value )[ 0 ];
-    low  = ( ( unsigned char * ) &value )[ 1 ];
-#endif
-  }
-
-  operator uint16_t() const
-  {
-    uint16_t result;
-
-#ifdef LITTLE_INDIAN_SYSTEM
-    ( ( unsigned char * ) &result )[ 0 ] = low;
-    ( ( unsigned char * ) &result )[ 1 ] = high;
-#else
-    ( ( unsigned char * ) &result )[ 0 ] = high;
-    ( ( unsigned char * ) &result )[ 1 ] = low;
-#endif
-
-    return result;
-  }
-
-private:
-  unsigned char low;
-  unsigned char high;
-};
-
-/*!
-  word_t
-*/
-struct word_t
-{
-  word_t( int16_t value )
-  {
-#ifdef LITTLE_INDIAN_SYSTEM
-    low  = ( ( unsigned char * ) &value )[ 0 ];
-    high = ( ( unsigned char * ) &value )[ 1 ];
-#else
-    high = ( ( unsigned char * ) &value )[ 0 ];
-    low  = ( ( unsigned char * ) &value )[ 1 ];
-#endif
-  }
-
-private:
-  unsigned char low;
-  unsigned char high;
-};
-
-/*!
-  udwort_t
-*/
-struct udword_t
-{
-  udword_t( uint32_t value )
-  {
-#ifdef LITTLE_INDIAN_SYSTEM
-    byte0  = ( ( unsigned char * ) &value )[ 0 ];
-    byte1  = ( ( unsigned char * ) &value )[ 1 ];
-    byte2  = ( ( unsigned char * ) &value )[ 2 ];
-    byte3  = ( ( unsigned char * ) &value )[ 3 ];
-#else
-    byte3  = ( ( unsigned char * ) &value )[ 0 ];
-    byte2  = ( ( unsigned char * ) &value )[ 1 ];
-    byte1  = ( ( unsigned char * ) &value )[ 2 ];
-    byte0  = ( ( unsigned char * ) &value )[ 3 ];
-#endif
-  }
-
-  operator uint32_t() const
-  {
-    uint32_t result;
-
-#ifdef LITTLE_INDIAN_SYSTEM
-    ( ( unsigned char * ) &result )[ 0 ] = byte0;
-    ( ( unsigned char * ) &result )[ 1 ] = byte1;
-    ( ( unsigned char * ) &result )[ 2 ] = byte2;
-    ( ( unsigned char * ) &result )[ 3 ] = byte3;
-#else
-    ( ( unsigned char * ) &result )[ 0 ] = byte3;
-    ( ( unsigned char * ) &result )[ 1 ] = byte2;
-    ( ( unsigned char * ) &result )[ 2 ] = byte1;
-    ( ( unsigned char * ) &result )[ 3 ] = byte0;
-#endif
-
-    return result;
-  }
-
-private:
-  unsigned char byte0;
-  unsigned char byte1;
-  unsigned char byte2;
-  unsigned char byte3;
-};
+class serverBase_c;
 
 /*!
   xGetFirmwareVersionMessage_t
@@ -192,12 +88,46 @@ struct xVersionMessage_t
 };
 
 /*!
+  xGetLocoInfoMessage_t
+
+  LAN_X_GET_LOCO_INFO
+*/
+struct xGetLocoInfoMessage_t
+{
+  uint8_t adrMsb;
+  uint8_t adrLsb;
+  uint8_t xorByte;
+};
+
+/*!
+  xLocoInfoMessage_t
+
+  LAN_X_LOCO_INFO
+*/
+struct xLocoInfoMessage_t
+{
+  uint8_t adrLsb;
+  uint8_t speedMode;
+  uint8_t speed;
+  uint8_t function0;
+  uint8_t function1;
+  uint8_t function2;
+  uint8_t function3;
+  uint8_t xorByte;
+};
+
+/*!
   xXorHelper_t
 */
 struct xXorHelper_t
 {
   uint8_t db1;
   uint8_t db2;
+  uint8_t db3;
+  uint8_t db4;
+  uint8_t db5;
+  uint8_t db6;
+  uint8_t db7;
 };
 
 /*!
@@ -215,7 +145,9 @@ struct xMessage_t
     xBcTrackPowerOnMessage_t      bcTrackPowerOn;
     xBcTrackShortCircuitMessage_t bcTrackShortCircuit;
     xFirmwareVersionMessage_t     firmwareVersion;
+    xGetLocoInfoMessage_t         getLocoInfo;
     xGetFirmwareVersionMessage_t  getFirmwareVersion;
+    xLocoInfoMessage_t            locoInfo;
     xStatusChangedMessage_t       statusChanged;
     xVersionMessage_t             version;
     xXorHelper_t                  xorHelper;
@@ -239,6 +171,33 @@ struct xMessage_t
   uint8_t xor3() const
   {
     return xHeader ^ db0 ^ xorHelper.db1 ^ xorHelper.db2;
+  }
+
+  uint8_t xor4() const
+  {
+    return xHeader ^ db0 ^ xorHelper.db1 ^ xorHelper.db2 ^ xorHelper.db3;
+  }
+
+  uint8_t xor5() const
+  {
+    return xHeader ^ db0 ^ xorHelper.db1 ^ xorHelper.db2 ^ xorHelper.db3 ^ xorHelper.db4;
+  }
+
+  uint8_t xor6() const
+  {
+    return xHeader ^ db0 ^ xorHelper.db1 ^ xorHelper.db2 ^ xorHelper.db3 ^ xorHelper.db4 ^ xorHelper.db5;
+  }
+
+  uint8_t xor7() const
+  {
+    return xHeader ^ db0 ^ xorHelper.db1 ^ xorHelper.db2 ^ xorHelper.db3 ^ xorHelper.db4 ^ xorHelper.db5 ^
+           xorHelper.db6;
+  }
+
+  uint8_t xor8() const
+  {
+    return xHeader ^ db0 ^ xorHelper.db1 ^ xorHelper.db2 ^ xorHelper.db3 ^ xorHelper.db4 ^ xorHelper.db5 ^
+           xorHelper.db6 ^ xorHelper.db7;
   }
 };
 
@@ -290,6 +249,36 @@ struct getBroadcastFlagsMessage_t
 };
 
 /*!
+  getLocoModeMessage_t
+
+  LAN_GET_LOCOMODE
+*/
+struct getLocoModeMessage_t
+{
+  udword_t address;
+};
+
+/*!
+  locoModeMessage_t
+*/
+struct locoModeMessage_t
+{
+  udword_t address;
+  uint8_t  mode;
+};
+
+/*!
+  setLocoModeMessage_t
+
+  LAN_SET_LOCOMODE
+*/
+struct setLocoModeMessage_t
+{
+  udword_t address;
+  uint8_t  mode;
+};
+
+/*!
   hwInfoMessage_t
 */
 struct hwInfoMessage_t
@@ -321,50 +310,15 @@ struct z21Message_t
   {
     codeMessage_t                   code;
     getBroadcastFlagsMessage_t      getBroadcastFlags;
+    getLocoModeMessage_t            getLocoMode;
     hwInfoMessage_t                 hwInfo;
+    locoModeMessage_t               locoMode;
     serialNumberMessage_t           serialNumber;
     setBroadcastFlagsMessage_t      setBroadcastFlags;
+    setLocoModeMessage_t            setLocoMode;
     systemStateDataChangedMessage_t systemStateDataChanged;
     xMessage_t                      x;
   };
-};
-
-/*!
-  serverBase_c
-*/
-class serverBase_c
-{
-public:
-  enum centralState_t
-  {
-    CS_NOT_SET                 = 0x00,
-    CS_EMERGENCY_STOP          = 0x01,
-    CS_TRACK_VOLTAGE_OFF       = 0x02,
-    CS_SHORT_CIRCUIT           = 0x04,
-    CS_PROGRAMMING_MODE_ACTIVE = 0x20,
-  };
-
-  enum hwInfo_t
-  {
-    HWT_Z21_OLD   = 0x00000200,
-    HWT_Z21_NEW   = 0x00000201,
-    HWT_SMARTRAIL = 0x00000202,
-    HWT_Z21_SMALL = 0x00000203,
-    HWT_Z21_START = 0x00000204,
-  };
-
-  static const uint8_t firmwareVersionMain = 0x01;
-  static const uint8_t firmwareVersionSub  = 0x30;
-
-  inline uint8_t centralState() const { return _centralState; }
-  virtual void   programmingMode() = 0;
-  virtual void   stop( bool ) = 0;
-  virtual void   trackPowerOff( bool ) = 0;
-  virtual void   trackPowerOn( bool ) = 0;
-  virtual void   trackShortCircuit() = 0;
-
-protected:
-  uint8_t _centralState = CS_NOT_SET;
 };
 
 /*!
@@ -390,34 +344,42 @@ public:
 
   z21Base_c( serverBase_c * );
 
-  inline udword_t broadcastFlags() const { return _broadcastFlags; }
-  void            getSendBcProgrammingMode( char *, uint16_t & ) const;
-  void            getSendBcStopped( char *, uint16_t & ) const;
-  void            getSendBcTrackPowerOff( char *, uint16_t & ) const;
-  void            getSendBcTrackPowerOn( char *, uint16_t & ) const;
-  void            getSendBcTrackShortCircuit( char *, uint16_t & ) const;
-  inline bool     isLoggedOff() const { return _isLoggedOff; }
-  void            parseMsg( const char *, uint16_t &, char *, uint16_t & );
+  inline udword_t   broadcastFlags() const { return _broadcastFlags; }
+  void              getSendBcProgrammingMode( char *, uint16_t & ) const;
+  void              getSendBcStopped( char *, uint16_t & ) const;
+  void              getSendBcTrackPowerOff( char *, uint16_t & ) const;
+  void              getSendBcTrackPowerOn( char *, uint16_t & ) const;
+  void              getSendBcTrackShortCircuit( char *, uint16_t & ) const;
+  inline clientId_t id() const { return _id; }
+  inline bool       isLoggedOff() const { return _isLoggedOff; }
+  void              parseMsg( const char *, uint16_t &, char *, uint16_t & );
 
 private:
+  z21Base_c() = delete;
+
   void createBcProgrammingMode( z21Message_t & ) const;
   void createBcStopped( z21Message_t & ) const;
   void createBcTrackPowerOff( z21Message_t & ) const;
   void createBcTrackPowerOn( z21Message_t & ) const;
   void createBcTrackShortCircuit( z21Message_t & ) const;
+  void createLocoInfo( const locoAddress_t &, z21Message_t & ) const;
   void createSystemStateDataChanged( z21Message_t & ) const;
   void createUnknownCommand( z21Message_t & ) const;
   void logMsg( const char *, const z21Message_t & ) const;
   void processGetCode( z21Message_t & );
   void processGetHwInfo( z21Message_t & );
+  void processGetLocoMode( const z21Message_t &, z21Message_t & );
   void processGetSerialNumber( z21Message_t & );
   void processLogoff( z21Message_t & );
   void processGetBroadcastFlags( z21Message_t & );
   void processSetBroadcastFlags( const z21Message_t &, z21Message_t & );
+  void processSetLocoMode( const z21Message_t &, z21Message_t & );
   void processSystemStateGetData( z21Message_t & ) const;
   void processX( const z21Message_t &, z21Message_t & );
 
-  udword_t      _broadcastFlags = 0;
-  bool          _isLoggedOff    = false;
-  serverBase_c *_parent         = nullptr;
+  udword_t           _broadcastFlags = 0;
+  clientId_t         _id       = 0;
+  bool               _isLoggedOff    = false;
+  static clientId_t  _nextId;
+  serverBase_c      *_parent         = nullptr;
 };

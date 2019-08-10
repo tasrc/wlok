@@ -1,13 +1,25 @@
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required( VERSION 2.8.12 )
 
-project(wlok)
+project( wlok )
 
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
-set(CMAKE_AUTOMOC ON)
+set( CMAKE_INCLUDE_CURRENT_DIR ON )
+set( CMAKE_AUTOMOC ON )
 
-find_package(Qt5Core)
-find_package(Qt5Network)
+set( SRC_FILES
+     loco.cpp
+     wlok.cpp
+     z21.cpp )
 
-add_executable(${PROJECT_NAME} wlok.cpp wlok.h z21.cpp z21.h)
+set( HEADER_FILES
+     loco.h
+     server_base.h
+     types.h
+     wlok.h
+     z21.h )
 
-target_link_libraries(${PROJECT_NAME} Qt5::Core Qt5::Network)
+find_package( Qt5Core )
+find_package( Qt5Network )
+
+add_executable( ${PROJECT_NAME} ${SRC_FILES} ${HEADER_FILES} )
+
+target_link_libraries( ${PROJECT_NAME} Qt5::Core Qt5::Network )
