@@ -40,6 +40,11 @@ void loco_c::subscribe( const clientId_t &id )
   _subscriptions.insert( id );
 }
 
+bool loco_c::isSubscriber( const clientId_t &id ) const
+{
+  return _subscriptions.contains( id );
+}
+
 /*********************************************************************************************************************/
 
 void wLok_c::initSocket()
@@ -88,7 +93,7 @@ void wLok_c::readData()
   }
 }
 
-void wLok_c::stop( bool all )
+void wLok_c::sendStop( bool all )
 {
   _centralState |= CS_EMERGENCY_STOP;
 
@@ -104,7 +109,7 @@ void wLok_c::stop( bool all )
   }
 }
 
-void wLok_c::trackPowerOff( bool all )
+void wLok_c::sendTrackPowerOff( bool all )
 {
   _centralState |= CS_TRACK_VOLTAGE_OFF;
   _centralState |= CS_EMERGENCY_STOP;
@@ -121,7 +126,7 @@ void wLok_c::trackPowerOff( bool all )
   }
 }
 
-void wLok_c::trackPowerOn( bool all )
+void wLok_c::sendTrackPowerOn( bool all )
 {
   _centralState &= ~CS_TRACK_VOLTAGE_OFF;
   _centralState &= ~CS_EMERGENCY_STOP;
@@ -139,7 +144,7 @@ void wLok_c::trackPowerOn( bool all )
   }
 }
 
-void wLok_c::trackShortCircuit()
+void wLok_c::sendTrackShortCircuit()
 {
   _centralState &= ~CS_TRACK_VOLTAGE_OFF;
   _centralState &= ~CS_EMERGENCY_STOP;
@@ -157,7 +162,7 @@ void wLok_c::trackShortCircuit()
   }
 }
 
-void wLok_c::programmingMode()
+void wLok_c::sendProgrammingMode()
 {
   _centralState &= ~CS_PROGRAMMING_MODE_ACTIVE;
 
@@ -167,6 +172,22 @@ void wLok_c::programmingMode()
     {
       quint16 sendLen;
       it.value().getSendBcProgrammingMode( _sendBuffer, sendLen );
+      QNetworkDatagram datagram( QByteArray::fromRawData( _sendBuffer, sendLen ), it.key() );
+      _udpSocket->writeDatagram( datagram );
+    }
+  }
+}
+
+void wLok_c::sendLocoInfo( const locoAddress_t &address )
+{
+  const loco_c l = loco( address );
+
+  for ( auto it = _clientSessions.begin(), itEnd = _clientSessions.end(); it != itEnd; ++it )
+  {
+    if ( l.isSubscriber( it.value().id() ) )
+    {
+      quint16 sendLen;
+      it.value().getSendLocoInfo( address, _sendBuffer, sendLen );
       QNetworkDatagram datagram( QByteArray::fromRawData( _sendBuffer, sendLen ), it.key() );
       _udpSocket->writeDatagram( datagram );
     }
@@ -214,7 +235,15 @@ void wLok_c::setLocoMaster( const locoAddress_t &address, const clientId_t &id )
 
 void wLok_c::subscribeLoco( const locoAddress_t &address, const clientId_t &id )
 {
-  loco( address ).subscribe( id );
+  for ( auto it = _clientSessions.begin(), itEnd = _clientSessions.end(); it != itEnd; ++it )
+  {
+    if ( it.value().id() == id &&
+         ( uint32_t( it.value().broadcastFlags() ) & uint32_t( z21Base_c::BROADCAST_AUTOMATIC_MESSAGES ) ) )
+    {
+      loco( address ).subscribe( id );
+      return;
+    }
+  }
 }
 
 clientId_t wLok_c::locoMaster( const locoAddress_t &address )

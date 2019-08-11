@@ -31,6 +31,7 @@ class loco_c : public locoBase_c
 public:
   loco_c( wLok_c *, const locoAddress_t & );
 
+  bool              isSubscriber( const clientId_t & ) const;
   inline clientId_t master() const { return _master; }
   void              remove( const clientId_t & );
   void              setMaster( const clientId_t & );
@@ -54,13 +55,14 @@ public:
   void       initSocket();
   clientId_t locoMaster( const locoAddress_t & );
   loco_c &   loco( const locoAddress_t & );
-  void       programmingMode();
+  void       sendLocoInfo( const locoAddress_t & );
+  void       sendProgrammingMode();
+  void       sendStop( bool );
+  void       sendTrackPowerOff( bool );
+  void       sendTrackPowerOn( bool );
+  void       sendTrackShortCircuit();
   void       setLocoMaster( const locoAddress_t &, const clientId_t & );
-  void       stop( bool );
   void       subscribeLoco( const locoAddress_t &, const clientId_t & );
-  void       trackPowerOff( bool );
-  void       trackPowerOn( bool );
-  void       trackShortCircuit();
 
 public slots:
   void readData();

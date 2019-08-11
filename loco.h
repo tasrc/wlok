@@ -2,7 +2,7 @@
 
 #include "types.h"
 
-#define LOCO_NUM_FUNCTION 28
+#define LOCO_MAX_FUNCTION 28
 
 class serverBase_c;
 
@@ -31,11 +31,13 @@ public:
   locoBase_c( serverBase_c *, const locoAddress_t & );
 
   inline addressFormat_t addressFormat() const { return _addressFormat; }
-  uint8_t                codedSpeed( bool ) const;
+  uint8_t                codedSpeed() const;
   bool                   function( uint8_t ) const;
   inline bool            multipleUnit() const { return _multipleUnit; }
   inline void            setAddressFormat( addressFormat_t format ) { _addressFormat = format; }
+  void                   setCodedSpeed( uint8_t );
   void                   setFunction( uint8_t, bool );
+  inline void            setSpeedMode( speedMode_t mode ) { _speedMode = mode; }
   inline speedMode_t     speedMode() const { return _speedMode; }
   bool                   toggleFunction( uint8_t );
 
@@ -45,7 +47,8 @@ private:
   locoAddress_t   _address = 0;
   addressFormat_t _addressFormat = ADDRESS_FORMAT_DCC;
   direction_t     _direction = DIRECTION_FORWARD;
-  bool            _functions[ LOCO_NUM_FUNCTION ];
+  bool            _emergencyStop = false;
+  bool            _functions[ LOCO_MAX_FUNCTION + 1 ];
   bool            _multipleUnit = false;
   serverBase_c   *_parent = nullptr;
   uint8_t         _speed = 0;

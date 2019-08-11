@@ -117,6 +117,32 @@ struct xLocoInfoMessage_t
 };
 
 /*!
+  xSetLocoDriveMessage_t
+
+  LAN_X_SET_LOCO_DRIVE
+*/
+struct xSetLocoDriveMessage_t
+{
+  uint8_t adrMsb;
+  uint8_t adrLsb;
+  uint8_t speed;
+  uint8_t xorByte;
+};
+
+/*!
+  xSetLocoFunctionMessage_t
+
+  LAN_X_SET_LOCO_FUNCTION
+*/
+struct xSetLocoFunctionMessage_t
+{
+  uint8_t adrMsb;
+  uint8_t adrLsb;
+  uint8_t function;
+  uint8_t xorByte;
+};
+
+/*!
   xXorHelper_t
 */
 struct xXorHelper_t
@@ -148,6 +174,8 @@ struct xMessage_t
     xGetLocoInfoMessage_t         getLocoInfo;
     xGetFirmwareVersionMessage_t  getFirmwareVersion;
     xLocoInfoMessage_t            locoInfo;
+    xSetLocoDriveMessage_t        setLocoDrive;
+    xSetLocoFunctionMessage_t     setLocoFunction;
     xStatusChangedMessage_t       statusChanged;
     xVersionMessage_t             version;
     xXorHelper_t                  xorHelper;
@@ -350,6 +378,7 @@ public:
   void              getSendBcTrackPowerOff( char *, uint16_t & ) const;
   void              getSendBcTrackPowerOn( char *, uint16_t & ) const;
   void              getSendBcTrackShortCircuit( char *, uint16_t & ) const;
+  void              getSendLocoInfo( const locoAddress_t &, char *, uint16_t & ) const;
   inline clientId_t id() const { return _id; }
   inline bool       isLoggedOff() const { return _isLoggedOff; }
   void              parseMsg( const char *, uint16_t &, char *, uint16_t & );
@@ -370,10 +399,12 @@ private:
   void processGetHwInfo( z21Message_t & );
   void processGetLocoMode( const z21Message_t &, z21Message_t & );
   void processGetSerialNumber( z21Message_t & );
-  void processLogoff( z21Message_t & );
+  void processLogoff();
   void processGetBroadcastFlags( z21Message_t & );
-  void processSetBroadcastFlags( const z21Message_t &, z21Message_t & );
-  void processSetLocoMode( const z21Message_t &, z21Message_t & );
+  void processSetBroadcastFlags( const z21Message_t & );
+  void processSetLocoDrive( const z21Message_t & );
+  void processSetLocoFunction( const z21Message_t & );
+  void processSetLocoMode( const z21Message_t & );
   void processSystemStateGetData( z21Message_t & ) const;
   void processX( const z21Message_t &, z21Message_t & );
 

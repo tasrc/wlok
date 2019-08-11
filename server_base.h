@@ -35,13 +35,14 @@ public:
   inline bool          centralStateStopped() const { return _centralState != CS_NOT_SET; }
   virtual locoBase_c & loco( const locoAddress_t & ) = 0;
   virtual clientId_t   locoMaster( const locoAddress_t & ) = 0;
-  virtual void         programmingMode() = 0;
+  virtual void         sendLocoInfo( const locoAddress_t & ) = 0;
+  virtual void         sendProgrammingMode() = 0;
+  virtual void         sendStop( bool ) = 0;
+  virtual void         sendTrackPowerOff( bool ) = 0;
+  virtual void         sendTrackPowerOn( bool ) = 0;
+  virtual void         sendTrackShortCircuit() = 0;
   virtual void         setLocoMaster( const locoAddress_t &, const clientId_t & ) = 0;
-  virtual void         stop( bool ) = 0;
   virtual void         subscribeLoco( const locoAddress_t &, const clientId_t & ) = 0;
-  virtual void         trackPowerOff( bool ) = 0;
-  virtual void         trackPowerOn( bool ) = 0;
-  virtual void         trackShortCircuit() = 0;
 
 protected:
   uint8_t _centralState = CS_NOT_SET;
