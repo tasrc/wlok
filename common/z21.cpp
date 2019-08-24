@@ -1,9 +1,9 @@
-#include "z21.h"
+#include "common/z21.h"
 
 #include <stdio.h>
 
-#include "loco.h"
-#include "server_base.h"
+#include "common/loco.h"
+#include "common/server_base.h"
 
 clientId_t z21Base_c::_nextId = 1;
 
@@ -528,10 +528,10 @@ void z21Base_c::createLocoInfo( const locoAddress_t &address, z21Message_t &msg 
 
   const uint8_t adrLsb = address & 0xff;
 
-  const clientId_t locoMaster = _parent->locoMaster( address );
-  const bool hasOtherMaster = locoMaster != 0 && locoMaster != _id;
+  const clientId_t locoController = _parent->locoController( address );
+  const bool hasOtherController = locoController != 0 && locoController != _id;
   uint8_t speedMode = loco.speedMode();
-  if ( locoMaster != 0 && locoMaster != _id )
+  if ( locoController != 0 && locoController != _id )
   {
     speedMode |= 0x08;
   }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "z21.h"
+#include "common/z21.h"
 
 class locoBase_c;
 
@@ -34,14 +34,14 @@ public:
   inline uint8_t       centralState() const { return _centralState; }
   inline bool          centralStateStopped() const { return _centralState != CS_NOT_SET; }
   virtual locoBase_c & loco( const locoAddress_t & ) = 0;
-  virtual clientId_t   locoMaster( const locoAddress_t & ) = 0;
+  virtual clientId_t   locoController( const locoAddress_t & ) = 0;
   virtual void         sendLocoInfo( const locoAddress_t & ) = 0;
   virtual void         sendProgrammingMode() = 0;
   virtual void         sendStop( bool ) = 0;
   virtual void         sendTrackPowerOff( bool ) = 0;
   virtual void         sendTrackPowerOn( bool ) = 0;
   virtual void         sendTrackShortCircuit() = 0;
-  virtual void         setLocoMaster( const locoAddress_t &, const clientId_t & ) = 0;
+  virtual void         setLocoController( const locoAddress_t &, const clientId_t & ) = 0;
   virtual void         subscribeLoco( const locoAddress_t &, const clientId_t & ) = 0;
 
 protected:

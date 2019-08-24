@@ -1,4 +1,4 @@
-#include "loco.h"
+#include "common/loco.h"
 
 #include <stdio.h>
 

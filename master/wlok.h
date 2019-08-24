@@ -4,9 +4,9 @@
 #include <QHostAddress>
 #include <QMap>
 
-#include "loco.h"
-#include "server_base.h"
-#include "z21.h"
+#include "common/loco.h"
+#include "common/server_base.h"
+#include "common/z21.h"
 
 class QUdpSocket;
 
@@ -32,16 +32,16 @@ public:
   loco_c( wLok_c *, const locoAddress_t & );
 
   bool              isSubscriber( const clientId_t & ) const;
-  inline clientId_t master() const { return _master; }
+  inline clientId_t controller() const { return _controller; }
   void              remove( const clientId_t & );
-  void              setMaster( const clientId_t & );
+  void              setController( const clientId_t & );
   void              subscribe( const clientId_t & );
 
 private:
   loco_c() = delete;
 
   QSet< clientId_t > _subscriptions;
-  clientId_t         _master = 0;
+  clientId_t         _controller = 0;
 };
 
 class wLok_c : public QCoreApplication, public serverBase_c
@@ -53,7 +53,7 @@ public:
   }
 
   void       initSocket();
-  clientId_t locoMaster( const locoAddress_t & );
+  clientId_t locoController( const locoAddress_t & );
   loco_c &   loco( const locoAddress_t & );
   void       sendLocoInfo( const locoAddress_t & );
   void       sendProgrammingMode();
@@ -61,7 +61,7 @@ public:
   void       sendTrackPowerOff( bool );
   void       sendTrackPowerOn( bool );
   void       sendTrackShortCircuit();
-  void       setLocoMaster( const locoAddress_t &, const clientId_t & );
+  void       setLocoController( const locoAddress_t &, const clientId_t & );
   void       subscribeLoco( const locoAddress_t &, const clientId_t & );
 
 public slots:

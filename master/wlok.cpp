@@ -1,4 +1,4 @@
-#include "wlok.h"
+#include "master/wlok.h"
 
 #include <QCoreApplication>
 #include <QNetworkDatagram>
@@ -22,17 +22,17 @@ loco_c::loco_c( wLok_c *parent, const locoAddress_t &address ) :
 
 void loco_c::remove( const clientId_t &id )
 {
-  if ( _master == id )
+  if ( _controller == id )
   {
-    _master = 0;
+    _controller = 0;
   }
 
   _subscriptions.remove( id );
 }
 
-void loco_c::setMaster( const clientId_t &id )
+void loco_c::setController( const clientId_t &id )
 {
-  _master = id;
+  _controller = id;
 }
 
 void loco_c::subscribe( const clientId_t &id )
@@ -224,12 +224,12 @@ void wLok_c::logoff( const clientAddress_c &address )
   _clientSessions.remove( address );
 }
 
-void wLok_c::setLocoMaster( const locoAddress_t &address, const clientId_t &id )
+void wLok_c::setLocoController( const locoAddress_t &address, const clientId_t &id )
 {
   auto &l = loco( address );
-  if ( l.master() == 0 )
+  if ( l.controller() == 0 )
   {
-    l.setMaster( id );
+    l.setController( id );
   }
 }
 
@@ -246,7 +246,7 @@ void wLok_c::subscribeLoco( const locoAddress_t &address, const clientId_t &id )
   }
 }
 
-clientId_t wLok_c::locoMaster( const locoAddress_t &address )
+clientId_t wLok_c::locoController( const locoAddress_t &address )
 {
-  loco( address ).master();
+  loco( address ).controller();
 }

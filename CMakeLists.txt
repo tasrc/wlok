@@ -6,16 +6,16 @@ set( CMAKE_INCLUDE_CURRENT_DIR ON )
 set( CMAKE_AUTOMOC ON )
 
 set( SRC_FILES
-     loco.cpp
-     wlok.cpp
-     z21.cpp )
+     common/loco.cpp
+     common/z21.cpp
+     master/wlok.cpp )
 
 set( HEADER_FILES
-     loco.h
-     server_base.h
-     types.h
-     wlok.h
-     z21.h )
+     common/loco.h
+     common/server_base.h
+     common/types.h
+     common/z21.h
+     master/wlok.h )
 
 find_package( Qt5Core )
 find_package( Qt5Network )
