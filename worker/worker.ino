@@ -1,6 +1,18 @@
+#include <Preferences.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WiFiAP.h>
+
+#define CONFIG_NAMESPACE           "wlokWorker"
+#define CONFIG_WORKER_SSID         "workerSsid"
+#define CONFIG_WORKER_PASSWORD     "workerPwd"
+#define CONFIG_WORKER_ADDRESS      "workerAddr"
+#define CONFIG_IS_SERVER           "isServer"
+#define CONFIG_DISPATCHER_SSID     "dispatchSsid"
+#define CONFIG_DISPATCHER_PASSWORD "dispatchPwd"
+#define CONFIG_DISPATCHER_HOST     "dispatchHost"
+
+#define LED 2
 
 struct config_t
 {
@@ -8,18 +20,41 @@ struct config_t
   String workerPassword;
   uint16_t workerAddress = 1;
   bool isServer = true;
-  String dispatcherSsid = "abc"; // TODO
-  String dispatcherPassword = "123"; // TODO
+  String dispatcherSsid;
+  String dispatcherPassword;
   String dispatcherHost;
 };
 
-WiFiServer server( 80 );
 config_t config;
+Preferences preferences;
+WiFiServer server( 80 );
 
 void setup()
 {
   Serial.begin( 115200 );
   Serial.println();
+
+  pinMode( LED, OUTPUT );
+
+  Serial.println( "Reading preferences..." );
+  preferences.begin( CONFIG_NAMESPACE, true );
+  config.workerSsid         = preferences.getString( CONFIG_WORKER_SSID );
+  config.workerPassword     = preferences.getString( CONFIG_WORKER_PASSWORD );
+  config.workerAddress      = preferences.getUShort( CONFIG_WORKER_ADDRESS, 1 );
+  config.isServer           = preferences.getBool  ( CONFIG_IS_SERVER, true );
+  config.dispatcherSsid     = preferences.getString( CONFIG_DISPATCHER_SSID );
+  config.dispatcherPassword = preferences.getString( CONFIG_DISPATCHER_PASSWORD );
+  config.dispatcherHost     = preferences.getString( CONFIG_DISPATCHER_HOST );
+  preferences.end();
+  Serial.printf( "config.workerSsid         = %s\n", config.workerSsid.c_str() );
+  Serial.printf( "config.workerPassword     = %s\n", config.workerPassword.c_str() );
+  Serial.printf( "config.workerAddress      = %d\n", config.workerAddress );
+  Serial.printf( "config.isServer           = %d\n", config.isServer );
+  Serial.printf( "config.dispatcherSsid     = %s\n", config.dispatcherSsid.c_str() );
+  Serial.printf( "config.dispatcherPassword = %s\n", config.dispatcherPassword.c_str() );
+  Serial.printf( "config.dispatcherHost     = %s\n", config.dispatcherHost.c_str() );
+  Serial.println();
+
   Serial.println( "Configuring access point..." );
 
   if ( config.workerSsid.length() == 0 )
@@ -36,16 +71,28 @@ void setup()
   Serial.print( "Access Point IP address: " );
   Serial.println( accessPointIP );
 
-  delay( 500 );
-  WiFi.begin( config.dispatcherSsid.c_str(), config.dispatcherPassword.c_str() );
-  while ( WiFi.status() != WL_CONNECTED )
+  if ( !config.isServer )
   {
     delay( 500 );
-    Serial.print( "." );
+    WiFi.begin( config.dispatcherSsid.c_str(), config.dispatcherPassword.c_str() );
+    int tries = 20;
+    while ( WiFi.status() != WL_CONNECTED && tries-- > 0 )
+    {
+      delay( 500 );
+      Serial.print( "." );
+    }
+    Serial.println("");
+    if ( tries > 0 )
+    {
+      Serial.printf( "Connected to WiFi: %s\n", config.dispatcherSsid );
+      Serial.printf( "WiFi IP address: %s.\n", WiFi.localIP().toString().c_str() );
+      digitalWrite( LED, HIGH );
+    }
+    else
+    {
+      Serial.printf( "Connecting to WiFi failed: %s\n", config.dispatcherSsid );
+    }
   }
-  Serial.println("");
-  Serial.printf( "Connected to WiFi: %s\n", config.dispatcherSsid );
-  Serial.printf( "WiFi IP address: %s.\n", WiFi.localIP().toString().c_str() );
 
   server.begin();
 
@@ -65,6 +112,7 @@ void loop()
     bool currentLineIsBlank = true;
     String reqStr = "";
     bool skip = true;
+    bool valueChanged = false;
 
     while ( client.connected() )
     {
@@ -94,7 +142,7 @@ void loop()
               c = client.read();
               postData += c;
             }
-            parsePostData( postData );
+            valueChanged = parsePostData( postData );
             reqStr += postData;
           }
           sendPage( client );
@@ -120,6 +168,21 @@ void loop()
     delay( 1 );
     client.stop();
     Serial.println( "Client Disconnected." );
+
+    if ( valueChanged )
+    {
+      preferences.begin( CONFIG_NAMESPACE, false );
+      preferences.putString( CONFIG_WORKER_SSID,         config.workerSsid );
+      preferences.putString( CONFIG_WORKER_PASSWORD,     config.workerPassword );
+      preferences.putUShort( CONFIG_WORKER_ADDRESS,      config.workerAddress );
+      preferences.putBool  ( CONFIG_IS_SERVER,           config.isServer );
+      preferences.putString( CONFIG_DISPATCHER_SSID,     config.dispatcherSsid );
+      preferences.putString( CONFIG_DISPATCHER_PASSWORD, config.dispatcherPassword );
+      preferences.putString( CONFIG_DISPATCHER_HOST,     config.dispatcherHost );
+      preferences.end();
+
+      ESP.restart();
+    }
   }
 }
 
@@ -199,12 +262,14 @@ void sendPage( WiFiClient &client )
   client.print( message );
 }
 
-void parsePostData( const String &line )
+bool parsePostData( const String &line )
 {
   int startPos = 0;
   int endPos = -1;
+  bool valueChanged = false;
 
-Serial.printf( "line=%s\n", line.c_str() );
+  //Serial.printf( "line=%s\n", line.c_str() );
+
   do
   {
     String part;
@@ -229,31 +294,60 @@ Serial.printf( "line=%s\n", line.c_str() );
 
       if ( var == "dispatcherHost" )
       {
-        config.dispatcherHost = value;
+        if ( config.dispatcherHost != value )
+        {
+          config.dispatcherHost = value;
+          valueChanged = true;
+        }
       }
       else if ( var == "dispatcherPassword" )
       {
-        config.dispatcherPassword = value;
+        if ( config.dispatcherPassword != value )
+        {
+          config.dispatcherPassword = value;
+          valueChanged = true;
+        }
       }
       else if ( var == "dispatcherSsid" )
       {
-        config.dispatcherSsid = value;
+        if ( config.dispatcherSsid != value )
+        {
+          config.dispatcherSsid = value;
+          valueChanged = true;
+        }
       }
       else if ( var == "workerAddress" )
       {
-        config.workerAddress = value.toInt();
+        if ( config.workerAddress != value.toInt() )
+        {
+          config.workerAddress = value.toInt();
+          valueChanged = true;
+        }
       }
       else if ( var == "workerMode" )
       {
-        config.isServer = ( value == "Server" );
+        const bool isServer = ( value == "Server" );
+        if ( config.isServer != isServer )
+        {
+          config.isServer = isServer;
+          valueChanged = true;
+        }
       }
       else if ( var == "workerPassword" )
       {
-        config.workerPassword = value;
+        if ( config.workerPassword != value )
+        {
+          config.workerPassword = value;
+          valueChanged = true;
+        }
       }
       else if ( var == "workerSsid" )
       {
-        config.workerSsid = value;
+        if ( config.workerSsid = value )
+        {
+          config.workerSsid = value;
+          valueChanged = true;
+        }
       }
       else
       {
@@ -264,4 +358,6 @@ Serial.printf( "line=%s\n", line.c_str() );
     startPos = endPos + 1;
   }
   while ( endPos > 0 );
+
+  return valueChanged;
 }
