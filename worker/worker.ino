@@ -2,11 +2,16 @@
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WiFiAP.h>
+#include <WiFiUdp.h>
+
+#include "loco.h"
+#include "server_base.h"
+#include "z21.h"
 
 #define CONFIG_NAMESPACE           "wlokWorker"
 #define CONFIG_WORKER_SSID         "workerSsid"
 #define CONFIG_WORKER_PASSWORD     "workerPwd"
-#define CONFIG_WORKER_ADDRESS      "workerAddr"
+#define CONFIG_LOCO_ADDRESS        "locoAddr"
 #define CONFIG_IS_SERVER           "isServer"
 #define CONFIG_DISPATCHER_SSID     "dispatchSsid"
 #define CONFIG_DISPATCHER_PASSWORD "dispatchPwd"
@@ -18,16 +23,68 @@ struct config_t
 {
   String workerSsid;
   String workerPassword;
-  uint16_t workerAddress = 1;
+  locoAddress_t locoAddress = 1;
   bool isServer = true;
   String dispatcherSsid;
   String dispatcherPassword;
   String dispatcherHost;
 };
 
-config_t config;
-Preferences preferences;
-WiFiServer server( 80 );
+class workerServer_c;
+
+class workerLoco_c : public locoBase_c
+{
+public:
+  workerLoco_c( workerServer_c *, const locoAddress_t & );
+
+  bool              isSubscriber( const clientId_t & ) const;
+  inline clientId_t controller() const { return _controller; }
+  void              remove( const clientId_t & );
+  void              setController( const clientId_t & );
+  void              subscribe( const clientId_t & );
+
+private:
+  workerLoco_c() = delete;
+
+  clientId_t _controller = 0;
+  clientId_t _subscriber = 0;
+};
+
+class workerServer_c : public serverBase_c
+{
+public:
+  workerServer_c() {}
+
+  void           init();
+  workerLoco_c & loco( const locoAddress_t & );
+  clientId_t     locoController( const locoAddress_t & );
+  void           receive();
+  void           sendLocoInfo( const locoAddress_t & );
+  void           sendProgrammingMode();
+  void           sendStop( bool );
+  void           sendTrackPowerOff( bool );
+  void           sendTrackPowerOn( bool );
+  void           sendTrackShortCircuit();
+  void           setLocoController( const locoAddress_t &, const clientId_t & );
+  void           subscribeLoco( const locoAddress_t &, const clientId_t & );
+
+private:
+  bool checkAddress( const locoAddress_t & ) const;
+
+  bool          _clientConnected = false;
+  IPAddress     _clientIp;
+  workerLoco_c *_loco = nullptr;
+  char          _receiveBuffer[ 1024 ];
+  char          _sendBuffer[ 1024 ];
+  WiFiUDP       _udp;
+  z21Base_c    *_z21 = nullptr;
+
+};
+
+config_t       config;
+Preferences    preferences;
+WiFiServer     webServer( 80 );
+workerServer_c server;
 
 void setup()
 {
@@ -40,7 +97,7 @@ void setup()
   preferences.begin( CONFIG_NAMESPACE, true );
   config.workerSsid         = preferences.getString( CONFIG_WORKER_SSID );
   config.workerPassword     = preferences.getString( CONFIG_WORKER_PASSWORD );
-  config.workerAddress      = preferences.getUShort( CONFIG_WORKER_ADDRESS, 1 );
+  config.locoAddress        = preferences.getUShort( CONFIG_LOCO_ADDRESS, 1 );
   config.isServer           = preferences.getBool  ( CONFIG_IS_SERVER, true );
   config.dispatcherSsid     = preferences.getString( CONFIG_DISPATCHER_SSID );
   config.dispatcherPassword = preferences.getString( CONFIG_DISPATCHER_PASSWORD );
@@ -48,7 +105,7 @@ void setup()
   preferences.end();
   Serial.printf( "config.workerSsid         = %s\n", config.workerSsid.c_str() );
   Serial.printf( "config.workerPassword     = %s\n", config.workerPassword.c_str() );
-  Serial.printf( "config.workerAddress      = %d\n", config.workerAddress );
+  Serial.printf( "config.locoAddress        = %d\n", config.locoAddress );
   Serial.printf( "config.isServer           = %d\n", config.isServer );
   Serial.printf( "config.dispatcherSsid     = %s\n", config.dispatcherSsid.c_str() );
   Serial.printf( "config.dispatcherPassword = %s\n", config.dispatcherPassword.c_str() );
@@ -70,6 +127,8 @@ void setup()
   Serial.printf( "Access Point SSID: %s\n", config.workerSsid.c_str() );
   Serial.print( "Access Point IP address: " );
   Serial.println( accessPointIP );
+
+  server.init();
 
   if ( !config.isServer )
   {
@@ -94,14 +153,14 @@ void setup()
     }
   }
 
-  server.begin();
+  webServer.begin();
 
   Serial.println( "Server started" );
 }
 
 void loop()
 {
-  WiFiClient client = server.available();   // listen for incoming clients
+  WiFiClient client = webServer.available();   // listen for incoming clients
 
   if ( client )
   {
@@ -174,7 +233,7 @@ void loop()
       preferences.begin( CONFIG_NAMESPACE, false );
       preferences.putString( CONFIG_WORKER_SSID,         config.workerSsid );
       preferences.putString( CONFIG_WORKER_PASSWORD,     config.workerPassword );
-      preferences.putUShort( CONFIG_WORKER_ADDRESS,      config.workerAddress );
+      preferences.putUShort( CONFIG_LOCO_ADDRESS,        config.locoAddress );
       preferences.putBool  ( CONFIG_IS_SERVER,           config.isServer );
       preferences.putString( CONFIG_DISPATCHER_SSID,     config.dispatcherSsid );
       preferences.putString( CONFIG_DISPATCHER_PASSWORD, config.dispatcherPassword );
@@ -184,6 +243,8 @@ void loop()
       ESP.restart();
     }
   }
+
+  server.receive();
 }
 
 void sendPage( WiFiClient &client )
@@ -206,8 +267,8 @@ void sendPage( WiFiClient &client )
   message += "    <table border=0>\n";
   message += "      <tr>\n";
   message += "        <td>Address</td>\n";
-  message += "        <td><input name=\"workerAddress\" type=\"number\" min=\"1\" max=\"255\" value=\"" +
-             String( config.workerAddress ) + "\"></td>\n";
+  message += "        <td><input name=\"locoAddress\" type=\"number\" min=\"1\" max=\"255\" value=\"" +
+             String( config.locoAddress ) + "\"></td>\n";
   message += "      </tr>\n";
   message += "      <tr>\n";
   message += "        <td>SSID</td>\n";
@@ -316,11 +377,11 @@ bool parsePostData( const String &line )
           valueChanged = true;
         }
       }
-      else if ( var == "workerAddress" )
+      else if ( var == "locoAddress" )
       {
-        if ( config.workerAddress != value.toInt() )
+        if ( config.locoAddress != value.toInt() )
         {
-          config.workerAddress = value.toInt();
+          config.locoAddress = value.toInt();
           valueChanged = true;
         }
       }
@@ -360,4 +421,214 @@ bool parsePostData( const String &line )
   while ( endPos > 0 );
 
   return valueChanged;
+}
+
+/*********************************************************************************************************************/
+
+workerLoco_c::workerLoco_c( workerServer_c *parent, const locoAddress_t &address ) :
+  locoBase_c( parent, address )
+{
+}
+
+void workerLoco_c::setController( const clientId_t &id )
+{
+  _controller = id;
+}
+
+void workerLoco_c::subscribe( const clientId_t &id )
+{
+  _subscriber = id;
+}
+
+bool workerLoco_c::isSubscriber( const clientId_t &id ) const
+{
+  return _subscriber == id;
+}
+
+/*********************************************************************************************************************/
+
+void workerServer_c::init()
+{
+  _loco = new workerLoco_c( this, config.locoAddress );
+  _z21 = new z21Base_c( this );
+
+  _udp.begin( SERVER_PORT );
+}
+
+void workerServer_c::receive()
+{
+  byte packetSize = _udp.parsePacket();
+
+  if ( packetSize )
+  {
+    IPAddress remoteIp = _udp.remoteIP();
+    uint16_t remotePort = _udp.remotePort();
+
+    Serial.print( remoteIp );
+    Serial.print( ": " );
+
+    if ( !_clientConnected )
+    {
+      _clientIp = remoteIp;
+      _clientConnected = true;
+    }
+
+    if ( _clientIp == remoteIp )
+    {
+      byte len = _udp.read( _receiveBuffer, packetSize );
+      if ( len > 0 )
+      {
+        _receiveBuffer[ len ] = 0;
+      }
+
+      uint16_t dataSize = len;
+      uint16_t replySize;
+
+      _z21->parseMsg( _receiveBuffer, dataSize, _sendBuffer, replySize );
+
+      if ( replySize > 0 )
+      {
+        _udp.beginPacket( _clientIp, SERVER_PORT );
+        _udp.write( ( const uint8_t * ) _sendBuffer, replySize );
+        _udp.endPacket();
+      }
+    }
+  }
+}
+
+bool workerServer_c::checkAddress( const locoAddress_t &address ) const
+{
+  if ( !_loco )
+  {
+    Serial.printf( "No loco assigned yet\n" );
+    return false;
+  }
+
+  if ( address != _loco->address() )
+  {
+    Serial.printf( "Received address %d does not match my address %d\n", address, _loco->address() );
+    return false;
+  }
+
+  return true;
+}
+
+workerLoco_c & workerServer_c::loco( const locoAddress_t &address )
+{
+  checkAddress( address );
+
+  return *_loco;
+}
+
+clientId_t workerServer_c::locoController( const locoAddress_t &address )
+{
+  checkAddress( address );
+
+  return _loco->controller();
+}
+
+void workerServer_c::setLocoController( const locoAddress_t &address, const clientId_t &id )
+{
+  checkAddress( address );
+
+  if ( _loco->controller() == 0 )
+  {
+    _loco->setController( id );
+  }
+}
+
+void workerServer_c::sendLocoInfo( const locoAddress_t &address )
+{
+  if ( _loco->isSubscriber( _z21->id() ) )
+  {
+    uint16_t sendLen;
+    _z21->getSendLocoInfo( address, _sendBuffer, sendLen );
+    _udp.beginPacket( _clientIp, SERVER_PORT );
+    _udp.write( ( const uint8_t * ) _sendBuffer, sendLen );
+    _udp.endPacket();
+  }
+}
+
+void workerServer_c::sendProgrammingMode()
+{
+  _centralState &= ~CS_PROGRAMMING_MODE_ACTIVE;
+
+  if ( uint32_t( _z21->broadcastFlags() ) & uint32_t( z21Base_c::BROADCAST_AUTOMATIC_MESSAGES ) )
+  {
+    uint16_t sendLen;
+    _z21->getSendBcProgrammingMode( _sendBuffer, sendLen );
+    _udp.beginPacket( _clientIp, SERVER_PORT );
+    _udp.write( ( const uint8_t * ) _sendBuffer, sendLen );
+    _udp.endPacket();
+  }
+}
+
+void workerServer_c::sendStop( bool all )
+{
+  _centralState |= CS_EMERGENCY_STOP;
+
+  if ( all || uint32_t( _z21->broadcastFlags() ) & uint32_t( z21Base_c::BROADCAST_AUTOMATIC_MESSAGES ) )
+  {
+    uint16_t sendLen;
+    _z21->getSendBcStopped( _sendBuffer, sendLen );
+    _udp.beginPacket( _clientIp, SERVER_PORT );
+    _udp.write( ( const uint8_t * ) _sendBuffer, sendLen );
+    _udp.endPacket();
+  }
+}
+
+void workerServer_c::sendTrackPowerOff( bool all )
+{
+  _centralState |= CS_TRACK_VOLTAGE_OFF;
+  _centralState |= CS_EMERGENCY_STOP;
+
+  if ( all || uint32_t( _z21->broadcastFlags() ) & uint32_t( z21Base_c::BROADCAST_AUTOMATIC_MESSAGES ) )
+  {
+    uint16_t sendLen;
+    _z21->getSendBcTrackPowerOff( _sendBuffer, sendLen );
+    _udp.beginPacket( _clientIp, SERVER_PORT );
+    _udp.write( ( const uint8_t * ) _sendBuffer, sendLen );
+    _udp.endPacket();
+  }
+}
+
+void workerServer_c::sendTrackPowerOn( bool all )
+{
+  _centralState &= ~CS_TRACK_VOLTAGE_OFF;
+  _centralState &= ~CS_EMERGENCY_STOP;
+  _centralState &= ~CS_SHORT_CIRCUIT;
+
+  if ( all || uint32_t( _z21->broadcastFlags() ) & uint32_t( z21Base_c::BROADCAST_AUTOMATIC_MESSAGES ) )
+  {
+    uint16_t sendLen;
+    _z21->getSendBcTrackPowerOn( _sendBuffer, sendLen );
+    _udp.beginPacket( _clientIp, SERVER_PORT );
+    _udp.write( ( const uint8_t * ) _sendBuffer, sendLen );
+    _udp.endPacket();
+  }
+}
+
+void workerServer_c::sendTrackShortCircuit()
+{
+  _centralState &= ~CS_TRACK_VOLTAGE_OFF;
+  _centralState &= ~CS_EMERGENCY_STOP;
+  _centralState &= ~CS_SHORT_CIRCUIT;
+
+  if ( uint32_t( _z21->broadcastFlags() ) & uint32_t( z21Base_c::BROADCAST_AUTOMATIC_MESSAGES ) )
+  {
+    uint16_t sendLen;
+    _z21->getSendBcTrackShortCircuit( _sendBuffer, sendLen );
+    _udp.beginPacket( _clientIp, SERVER_PORT );
+    _udp.write( ( const uint8_t * ) _sendBuffer, sendLen );
+    _udp.endPacket();
+  }
+}
+
+void workerServer_c::subscribeLoco( const locoAddress_t &address, const clientId_t &id )
+{
+  if ( _z21->id() == id &&
+       ( uint32_t( _z21->broadcastFlags() ) & uint32_t( z21Base_c::BROADCAST_AUTOMATIC_MESSAGES ) ) )
+  {
+    _loco->subscribe( id );
+  }
 }

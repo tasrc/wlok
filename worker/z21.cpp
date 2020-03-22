@@ -1,9 +1,9 @@
-#include "common/z21.h"
+#include "z21.h"
 
 #include <stdio.h>
 
-#include "common/loco.h"
-#include "common/server_base.h"
+#include "loco.h"
+#include "server_base.h"
 
 clientId_t z21Base_c::_nextId = 1;
 
@@ -39,7 +39,7 @@ void z21Base_c::parseMsg( const char *msgData, uint16_t &msgLen, char *replyData
   case 0x12:
   case 0x16:
     // undokumentierte Kommandos
-    fprintf( stderr, "-- ERROR: Undocumented message\n" );
+    printf( "-- ERROR: Undocumented message\n" );
     break;
 
   case 0x18:
@@ -92,7 +92,7 @@ void z21Base_c::parseMsg( const char *msgData, uint16_t &msgLen, char *replyData
 */
 void z21Base_c::processGetSerialNumber( z21Message_t &reply )
 {
-  fprintf( stderr, "-- LAN_GET_SERIAL_NUMBER\n" );
+  printf( "-- LAN_GET_SERIAL_NUMBER\n" );
 
   reply.length                    = 0x08;
   reply.header                    = 0x10;
@@ -104,7 +104,7 @@ void z21Base_c::processGetSerialNumber( z21Message_t &reply )
 */
 void z21Base_c::processGetHwInfo( z21Message_t &reply )
 {
-  fprintf( stderr, "-- LAN_GET_HWINFO\n" );
+  printf( "-- LAN_GET_HWINFO\n" );
 
   reply.length                       = 0x0c;
   reply.header                       = 0x1a;
@@ -120,7 +120,7 @@ void z21Base_c::processGetHwInfo( z21Message_t &reply )
 */
 void z21Base_c::processGetCode( z21Message_t &reply )
 {
-  fprintf( stderr, "-- LAN_GET_CODE\n" );
+  printf( "-- LAN_GET_CODE\n" );
 
   reply.length    = 0x0c;
   reply.header    = 0x18;
@@ -132,7 +132,7 @@ void z21Base_c::processGetCode( z21Message_t &reply )
 */
 void z21Base_c::processLogoff()
 {
-  fprintf( stderr, "-- LAN_LOGOFF\n" );
+  printf( "-- LAN_LOGOFF\n" );
 
   _isLoggedOff = true;
 }
@@ -144,7 +144,7 @@ void z21Base_c::processX( const z21Message_t &msg, z21Message_t &reply )
 {
   if ( msg.x.xHeader == 0x21 && msg.x.db0 == 0x21 )
   {
-    fprintf( stderr, "-- LAN_X_GET_VERSION\n" );
+    printf( "-- LAN_X_GET_VERSION\n" );
 
     reply.length            = 0x09;
     reply.header            = 0x40;
@@ -156,7 +156,7 @@ void z21Base_c::processX( const z21Message_t &msg, z21Message_t &reply )
   }
   if ( msg.x.xHeader == 0x21 && msg.x.db0 == 0x24 )
   {
-    fprintf( stderr, "-- LAN_X_GET_STATUS\n" );
+    printf( "-- LAN_X_GET_STATUS\n" );
 
     reply.length                  = 0x09;
     reply.header                  = 0x40;
@@ -167,19 +167,19 @@ void z21Base_c::processX( const z21Message_t &msg, z21Message_t &reply )
   }
   else if ( msg.x.xHeader == 0x21 && msg.x.db0 == 0x80 )
   {
-    fprintf( stderr, "-- LAN_X_SET_TRACK_POWER_OFF\n" );
+    printf( "-- LAN_X_SET_TRACK_POWER_OFF\n" );
 
     _parent->sendTrackPowerOff( true );
   }
   else if ( msg.x.xHeader == 0x21 && msg.x.db0 == 0x81 )
   {
-    fprintf( stderr, "-- LAN_X_SET_TRACK_POWER_ON\n" );
+    printf( "-- LAN_X_SET_TRACK_POWER_ON\n" );
 
     _parent->sendTrackPowerOn( true );
   }
   else if ( msg.x.xHeader == 0x80 )
   {
-    fprintf( stderr, "-- LAN_X_SET_STOP\n" );
+    printf( "-- LAN_X_SET_STOP\n" );
 
     _parent->sendStop( true );
   }
@@ -187,7 +187,7 @@ void z21Base_c::processX( const z21Message_t &msg, z21Message_t &reply )
   {
     const locoAddress_t address = ( ( msg.x.getLocoInfo.adrMsb & 0x3f ) << 8 ) + msg.x.getLocoInfo.adrLsb;
 
-    fprintf( stderr, "-- LAN_X_GET_LOCO_INFO %d\n", address );
+    printf( "-- LAN_X_GET_LOCO_INFO %d\n", address );
 
     createLocoInfo( address, reply );
   }
@@ -201,7 +201,7 @@ void z21Base_c::processX( const z21Message_t &msg, z21Message_t &reply )
   }
   else if ( msg.x.xHeader == 0xf1 && msg.x.db0 == 0x0a )
   {
-    fprintf( stderr, "-- LAN_X_GET_FIRMWARE_VERSION\n" );
+    printf( "-- LAN_X_GET_FIRMWARE_VERSION\n" );
 
     reply.length                        = 0x09;
     reply.header                        = 0x40;
@@ -213,7 +213,7 @@ void z21Base_c::processX( const z21Message_t &msg, z21Message_t &reply )
   }
   else
   {
-    fprintf( stderr, "-- ERROR: Unknown X-Message\n" );
+    printf( "-- ERROR: Unknown X-Message\n" );
     createUnknownCommand( reply );
   }
 }
@@ -223,7 +223,7 @@ void z21Base_c::processX( const z21Message_t &msg, z21Message_t &reply )
 */
 void z21Base_c::processSetBroadcastFlags( const z21Message_t &msg )
 {
-  fprintf( stderr, "-- LAN_SET_BROADCASTFLAGS\n" );
+  printf( "-- LAN_SET_BROADCASTFLAGS\n" );
 
   _broadcastFlags = msg.setBroadcastFlags.broadcastFlags;
 }
@@ -233,7 +233,7 @@ void z21Base_c::processSetBroadcastFlags( const z21Message_t &msg )
 */
 void z21Base_c::processGetBroadcastFlags( z21Message_t &reply )
 {
-  fprintf( stderr, "-- LAN_GET_BROADCASTFLAGS\n" );
+  printf( "-- LAN_GET_BROADCASTFLAGS\n" );
 
   reply.length = 0x08;
   reply.header = 0x051;
@@ -245,7 +245,7 @@ void z21Base_c::processGetBroadcastFlags( z21Message_t &reply )
 */
 void z21Base_c::processSystemStateGetData( z21Message_t &reply ) const
 {
-  fprintf( stderr, "-- LAN_SYSTEMSTATE_GETDATA\n" );
+  printf( "-- LAN_SYSTEMSTATE_GETDATA\n" );
 
   createSystemStateDataChanged( reply );
 }
@@ -255,7 +255,7 @@ void z21Base_c::processSystemStateGetData( z21Message_t &reply ) const
 */
 void z21Base_c::processGetLocoMode( const z21Message_t &msg, z21Message_t &reply )
 {
-  fprintf( stderr, "-- LAN_GET_LOCOMODE\n" );
+  printf( "-- LAN_GET_LOCOMODE\n" );
 
   locoAddress_t address = msg.getLocoMode.address;
   auto &loco = _parent->loco( address );
@@ -274,7 +274,7 @@ void z21Base_c::processSetLocoMode( const z21Message_t &msg )
   locoAddress_t address = msg.setLocoMode.address;
   auto &loco = _parent->loco( address );
 
-  fprintf( stderr, "-- LAN_GET_LOCOMODE %d\n", address );
+  printf( "-- LAN_GET_LOCOMODE %d\n", address );
 
   loco.setAddressFormat( locoBase_c::addressFormat_t( msg.setLocoMode.mode ) );
 }
@@ -287,7 +287,7 @@ void z21Base_c::processSetLocoDrive( const z21Message_t &msg )
   const locoAddress_t address = ( ( msg.x.setLocoDrive.adrMsb & 0x3f ) << 8 ) + msg.x.setLocoDrive.adrLsb;
   auto &loco = _parent->loco( address );
 
-  fprintf( stderr, "-- LAN_X_SET_LOCO_DRIVE %d\n", address );
+  printf( "-- LAN_X_SET_LOCO_DRIVE %d\n", address );
 
   locoBase_c::speedMode_t speedMode = loco.speedMode();
 
@@ -312,7 +312,7 @@ void z21Base_c::processSetLocoFunction( const z21Message_t &msg )
   const locoAddress_t address = ( ( msg.x.setLocoFunction.adrMsb & 0x3f ) << 8 ) + msg.x.setLocoFunction.adrLsb;
   auto &loco = _parent->loco( address );
 
-  fprintf( stderr, "-- LAN_X_SET_LOCO_FUNCTION %d\n", address );
+  printf( "-- LAN_X_SET_LOCO_FUNCTION %d\n", address );
 
   uint8_t operation = ( msg.x.setLocoFunction.function & 0xc0 ) >> 6;
   uint8_t function = msg.x.setLocoFunction.function & 0x3f;
@@ -340,7 +340,7 @@ void z21Base_c::processSetLocoFunction( const z21Message_t &msg )
 */
 void z21Base_c::createSystemStateDataChanged( z21Message_t &msg ) const
 {
-  fprintf( stderr, "-- LAN_SYSTEMSTATE_DATACHANGED\n" );
+  printf( "-- LAN_SYSTEMSTATE_DATACHANGED\n" );
 
   msg.length                                     = 0x14;
   msg.header                                     = 0x84;
@@ -361,7 +361,7 @@ void z21Base_c::createSystemStateDataChanged( z21Message_t &msg ) const
 */
 void z21Base_c::createUnknownCommand( z21Message_t &msg ) const
 {
-  fprintf( stderr, "-- ERROR: Unknown Command\n" );
+  printf( "-- ERROR: Unknown Command\n" );
 
   msg.length    = 0x07;
   msg.header    = 0x40;
@@ -374,7 +374,7 @@ void z21Base_c::createUnknownCommand( z21Message_t &msg ) const
 */
 void z21Base_c::createBcStopped( z21Message_t &msg ) const
 {
-  fprintf( stderr, "-- LAN_X_BC_STOPPED\n" );
+  printf( "-- LAN_X_BC_STOPPED\n" );
 
   msg.length              = 0x07;
   msg.header              = 0x40;
@@ -402,7 +402,7 @@ void z21Base_c::getSendBcStopped( char *buffer, uint16_t &length ) const
 */
 void z21Base_c::createBcTrackPowerOff( z21Message_t &msg ) const
 {
-  fprintf( stderr, "-- LAN_X_BC_TRACK_POWER_OFF\n" );
+  printf( "-- LAN_X_BC_TRACK_POWER_OFF\n" );
 
   msg.length                   = 0x07;
   msg.header                   = 0x40;
@@ -430,7 +430,7 @@ void z21Base_c::getSendBcTrackPowerOff( char *buffer, uint16_t &length ) const
 */
 void z21Base_c::createBcTrackPowerOn( z21Message_t &msg ) const
 {
-  fprintf( stderr, "-- LAN_X_BC_TRACK_POWER_ON\n" );
+  printf( "-- LAN_X_BC_TRACK_POWER_ON\n" );
 
   msg.length                   = 0x07;
   msg.header                   = 0x40;
@@ -458,7 +458,7 @@ void z21Base_c::getSendBcTrackPowerOn( char *buffer, uint16_t &length ) const
 */
 void z21Base_c::createBcTrackShortCircuit( z21Message_t &msg ) const
 {
-  fprintf( stderr, "-- LAN_X_BC_TRACK_SHORT_CIRCUIT\n" );
+  printf( "-- LAN_X_BC_TRACK_SHORT_CIRCUIT\n" );
 
   msg.length                        = 0x07;
   msg.header                        = 0x40;
@@ -486,7 +486,7 @@ void z21Base_c::getSendBcTrackShortCircuit( char *buffer, uint16_t &length ) con
 */
 void z21Base_c::createBcProgrammingMode( z21Message_t &msg ) const
 {
-  fprintf( stderr, "-- LAN_X_BC_PROGRAMMING_MODE\n" );
+  printf( "-- LAN_X_BC_PROGRAMMING_MODE\n" );
 
   msg.length                      = 0x07;
   msg.header                      = 0x40;
@@ -514,7 +514,7 @@ void z21Base_c::getSendBcProgrammingMode( char *buffer, uint16_t &length ) const
 */
 void z21Base_c::createLocoInfo( const locoAddress_t &address, z21Message_t &msg ) const
 {
-  fprintf( stderr, "-- LAN_X_LOCO_INFO %d\n", address );
+  printf( "-- LAN_X_LOCO_INFO %d\n", address );
 
   _parent->subscribeLoco( address, _id );
 
@@ -619,11 +619,11 @@ void z21Base_c::logMsg( const char *label, const z21Message_t &data ) const
   const unsigned char *dataPtr = ( unsigned char * ) &data;
   if ( data.length > 0 )
   {
-    fprintf( stderr, "%s", label );
+    printf( "%s", label );
     for ( int xx = 0; xx < int( data.length ); xx++ )
     {
-      fprintf( stderr, " %02x", dataPtr[ xx ] );
+      printf( " %02x", dataPtr[ xx ] );
     }
-    fprintf( stderr, "\n" );
+    printf( "\n" );
   }
 }

@@ -1,4 +1,4 @@
-#include "master/wlok.h"
+#include "master/master.h"
 
 #include <QCoreApplication>
 #include <QNetworkDatagram>
@@ -6,21 +6,21 @@
 
 int main(int argc, char *argv[])
 {
-  wLok_c a (argc, argv );
+  masterServer_c app( argc, argv );
 
-  a.initSocket();
+  app.initSocket();
 
-  return a.exec();
+  return app.exec();
 }
 
 /*********************************************************************************************************************/
 
-loco_c::loco_c( wLok_c *parent, const locoAddress_t &address ) :
+masterLoco_c::masterLoco_c( masterServer_c *parent, const locoAddress_t &address ) :
   locoBase_c( parent, address )
 {
 }
 
-void loco_c::remove( const clientId_t &id )
+void masterLoco_c::remove( const clientId_t &id )
 {
   if ( _controller == id )
   {
@@ -30,32 +30,32 @@ void loco_c::remove( const clientId_t &id )
   _subscriptions.remove( id );
 }
 
-void loco_c::setController( const clientId_t &id )
+void masterLoco_c::setController( const clientId_t &id )
 {
   _controller = id;
 }
 
-void loco_c::subscribe( const clientId_t &id )
+void masterLoco_c::subscribe( const clientId_t &id )
 {
   _subscriptions.insert( id );
 }
 
-bool loco_c::isSubscriber( const clientId_t &id ) const
+bool masterLoco_c::isSubscriber( const clientId_t &id ) const
 {
   return _subscriptions.contains( id );
 }
 
 /*********************************************************************************************************************/
 
-void wLok_c::initSocket()
+void masterServer_c::initSocket()
 {
   _udpSocket = new QUdpSocket( this );
-  _udpSocket->bind( QHostAddress::Any, 21105 );
+  _udpSocket->bind( QHostAddress::Any, SERVER_PORT );
 
-  connect( _udpSocket, &QUdpSocket::readyRead, this, &wLok_c::readData );
+  connect( _udpSocket, &QUdpSocket::readyRead, this, &masterServer_c::readData );
 }
 
-void wLok_c::readData()
+void masterServer_c::readData()
 {
   while ( _udpSocket->hasPendingDatagrams() )
   {
@@ -93,7 +93,7 @@ void wLok_c::readData()
   }
 }
 
-void wLok_c::sendStop( bool all )
+void masterServer_c::sendStop( bool all )
 {
   _centralState |= CS_EMERGENCY_STOP;
 
@@ -109,7 +109,7 @@ void wLok_c::sendStop( bool all )
   }
 }
 
-void wLok_c::sendTrackPowerOff( bool all )
+void masterServer_c::sendTrackPowerOff( bool all )
 {
   _centralState |= CS_TRACK_VOLTAGE_OFF;
   _centralState |= CS_EMERGENCY_STOP;
@@ -126,7 +126,7 @@ void wLok_c::sendTrackPowerOff( bool all )
   }
 }
 
-void wLok_c::sendTrackPowerOn( bool all )
+void masterServer_c::sendTrackPowerOn( bool all )
 {
   _centralState &= ~CS_TRACK_VOLTAGE_OFF;
   _centralState &= ~CS_EMERGENCY_STOP;
@@ -144,7 +144,7 @@ void wLok_c::sendTrackPowerOn( bool all )
   }
 }
 
-void wLok_c::sendTrackShortCircuit()
+void masterServer_c::sendTrackShortCircuit()
 {
   _centralState &= ~CS_TRACK_VOLTAGE_OFF;
   _centralState &= ~CS_EMERGENCY_STOP;
@@ -162,7 +162,7 @@ void wLok_c::sendTrackShortCircuit()
   }
 }
 
-void wLok_c::sendProgrammingMode()
+void masterServer_c::sendProgrammingMode()
 {
   _centralState &= ~CS_PROGRAMMING_MODE_ACTIVE;
 
@@ -178,9 +178,9 @@ void wLok_c::sendProgrammingMode()
   }
 }
 
-void wLok_c::sendLocoInfo( const locoAddress_t &address )
+void masterServer_c::sendLocoInfo( const locoAddress_t &address )
 {
-  const loco_c l = loco( address );
+  const masterLoco_c l = loco( address );
 
   for ( auto it = _clientSessions.begin(), itEnd = _clientSessions.end(); it != itEnd; ++it )
   {
@@ -194,19 +194,19 @@ void wLok_c::sendLocoInfo( const locoAddress_t &address )
   }
 }
 
-loco_c & wLok_c::loco( const locoAddress_t &address )
+masterLoco_c & masterServer_c::loco( const locoAddress_t &address )
 {
   auto it = _locos.find( address );
 
   if ( it == _locos.end() )
   {
-    it = _locos.insert( address, loco_c( this, address ) );
+    it = _locos.insert( address, masterLoco_c( this, address ) );
   }
 
   return it.value();
 }
 
-void wLok_c::logoff( const clientAddress_c &address )
+void masterServer_c::logoff( const clientAddress_c &address )
 {
   fprintf( stderr, "LOGOFF %s\n", qPrintable( address.toString() ) );
 
@@ -224,7 +224,7 @@ void wLok_c::logoff( const clientAddress_c &address )
   _clientSessions.remove( address );
 }
 
-void wLok_c::setLocoController( const locoAddress_t &address, const clientId_t &id )
+void masterServer_c::setLocoController( const locoAddress_t &address, const clientId_t &id )
 {
   auto &l = loco( address );
   if ( l.controller() == 0 )
@@ -233,7 +233,7 @@ void wLok_c::setLocoController( const locoAddress_t &address, const clientId_t &
   }
 }
 
-void wLok_c::subscribeLoco( const locoAddress_t &address, const clientId_t &id )
+void masterServer_c::subscribeLoco( const locoAddress_t &address, const clientId_t &id )
 {
   for ( auto it = _clientSessions.begin(), itEnd = _clientSessions.end(); it != itEnd; ++it )
   {
@@ -246,7 +246,7 @@ void wLok_c::subscribeLoco( const locoAddress_t &address, const clientId_t &id )
   }
 }
 
-clientId_t wLok_c::locoController( const locoAddress_t &address )
+clientId_t masterServer_c::locoController( const locoAddress_t &address )
 {
-  loco( address ).controller();
+  return loco( address ).controller();
 }

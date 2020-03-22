@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common/z21.h"
+#include "z21.h"
 
 class locoBase_c;
 

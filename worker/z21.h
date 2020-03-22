@@ -1,6 +1,8 @@
 #pragma once
 
-#include "common/types.h"
+#include "types.h"
+
+#define SERVER_PORT 21105
 
 class serverBase_c;
 
@@ -409,7 +411,7 @@ private:
   void processX( const z21Message_t &, z21Message_t & );
 
   udword_t           _broadcastFlags = 0;
-  clientId_t         _id       = 0;
+  clientId_t         _id             = 0;
   bool               _isLoggedOff    = false;
   static clientId_t  _nextId;
   serverBase_c      *_parent         = nullptr;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common/types.h"
+#include "types.h"
 
 #define LOCO_MAX_FUNCTION 28
 
@@ -30,6 +30,7 @@ public:
 
   locoBase_c( serverBase_c *, const locoAddress_t & );
 
+  inline locoAddress_t   address() const { return _address; }
   inline addressFormat_t addressFormat() const { return _addressFormat; }
   uint8_t                codedSpeed() const;
   bool                   function( uint8_t ) const;
